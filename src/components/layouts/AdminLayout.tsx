@@ -17,10 +17,10 @@ const AdminLayout = () => {
         </div>
         <nav className="flex-1 p-4">
           <Link
-            to="/admin"
+            to="/owner/dashboard"
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-              location.pathname === "/admin"
+              location.pathname === "/admin" || location.pathname === "/owner/dashboard"
                 ? "bg-primary/10 text-primary font-medium"
                 : "text-muted-foreground hover:text-foreground hover:bg-secondary"
             )}

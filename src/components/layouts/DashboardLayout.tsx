@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { useTenant } from "@/contexts/TenantContext";
 import {
   LayoutDashboard, Calendar, Users, Scissors, UserCheck, DollarSign,
   Package, ShoppingCart, BarChart3, Settings, Bell, Plus, ChevronLeft,
@@ -24,6 +25,7 @@ const navItems = [
 const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { currentCompany } = useTenant();
 
   return (
     <div className="flex h-screen bg-background">
@@ -73,16 +75,20 @@ const DashboardLayout = () => {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card shrink-0">
-          <h2 className="font-display font-semibold text-lg">Barbearia Premium</h2>
+          <h2 className="font-display font-semibold text-lg">
+            {currentCompany?.name ?? "Empresa"}
+          </h2>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm">
               <Bell size={16} className="mr-2" />
               <span className="hidden sm:inline">Notificações</span>
             </Button>
-            <Button size="sm">
-              <Plus size={16} className="mr-2" />
-              <span className="hidden sm:inline">Novo Agendamento</span>
-            </Button>
+            <Link to="/app/agenda">
+              <Button size="sm">
+                <Plus size={16} className="mr-2" />
+                <span className="hidden sm:inline">Novo Agendamento</span>
+              </Button>
+            </Link>
           </div>
         </header>
 

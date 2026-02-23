@@ -1,8 +1,34 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Scissors, Shield, Building2, User } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
-const Index = () => (
+const getDashboardByRole = (role: string) => {
+  if (role === "owner") return "/owner/dashboard";
+  if (role === "company_admin" || role === "employee") return "/app";
+  if (role === "client") return "/client";
+  return null;
+};
+
+const Index = () => {
+  const { isAuthenticated, isLoading, profile } = useAuth();
+
+  // Aguarda auth antes de decidir redirect (evita flash da tela de escolha)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Carregando...</div>
+      </div>
+    );
+  }
+
+  // Redireciona usuário autenticado para o painel correto
+  if (isAuthenticated && profile?.role) {
+    const dest = getDashboardByRole(profile.role);
+    if (dest) return <Navigate to={dest} replace />;
+  }
+
+  return (
   <div className="min-h-screen bg-background flex items-center justify-center p-6">
     <div className="max-w-md w-full text-center space-y-8 animate-fade-in">
       <div>
@@ -13,7 +39,7 @@ const Index = () => (
         <p className="text-muted-foreground">Plataforma SaaS para gestão de negócios de beleza</p>
       </div>
       <div className="space-y-3">
-        <Link to="/admin" className="block">
+        <Link to="/auth/login?returnTo=%2Fowner%2Fdashboard&loginOnly=1" className="block">
           <Button variant="outline" className="w-full justify-start gap-3 h-14">
             <Shield size={20} className="text-primary shrink-0" />
             <div className="text-left">
@@ -22,7 +48,7 @@ const Index = () => (
             </div>
           </Button>
         </Link>
-        <Link to="/app" className="block">
+        <Link to="/auth/login?returnTo=%2Fapp&loginOnly=1" className="block">
           <Button variant="outline" className="w-full justify-start gap-3 h-14">
             <Building2 size={20} className="text-primary shrink-0" />
             <div className="text-left">
@@ -52,6 +78,7 @@ const Index = () => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export default Index;
