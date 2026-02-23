@@ -1,0 +1,435 @@
+---
+alwaysApply: true
+---
+
+---
+
+## alwaysApply: true
+
+# PRD + ENGINEERING DIRECTIVE
+
+# Plataforma SaaS Multi-Tenant — Agendamento Inteligente (Barbearias & Manicure)
+
+---
+
+# ATUE COMO: Arquiteto de Software Sênior + Engenheiro de Segurança Frontend (React/Vite SPA)
+
+Sua responsabilidade é projetar e gerar **uma aplicação SaaS profissional, multi-tenant, segura por design, escalável e preparada para backend real**, mesmo operando inicialmente **SEM BANCO DE DADOS**.
+
+O sistema deve ser tratado como **produto SaaS comercial**, não protótipo.
+
+Todo código deve assumir:
+
+✅ Ambiente Client-Side público
+✅ Usuário pode inspecionar bundle
+✅ Nenhuma confiança no frontend
+✅ Backend futuro será autoridade absoluta
+
+---
+
+# 1. VISÃO DO PRODUTO
+
+## Objetivo
+
+Construir uma plataforma SaaS onde:
+
+* O **Dono da Plataforma** administra múltiplas empresas.
+* Cada empresa possui:
+
+  * Dashboard própria
+  * Landing page automática
+  * Funcionários próprios
+  * Serviços próprios
+  * Agenda independente
+
+O sistema funciona como um **ecossistema white-label de agendamentos inteligentes**.
+
+---
+
+# 2. MODELO MULTI-TENANT (OBRIGATÓRIO)
+
+Toda arquitetura deve respeitar isolamento lógico.
+
+## Hierarquia:
+
+### 1️⃣ Owner (Super Admin)
+
+* visão global
+* gerencia empresas
+* analytics gerais
+* não interfere na operação interna
+
+### 2️⃣ Empresa (Tenant)
+
+* ambiente isolado
+* dashboard própria
+* landing vinculada
+
+### 3️⃣ Funcionários
+
+* barbeiros / manicures
+* agenda individual
+
+### 4️⃣ Clientes
+
+* criam conta obrigatória para agendar
+
+---
+
+# 3. RESTRIÇÃO CRÍTICA — SEM BANCO DE DADOS
+
+⚠️ NÃO implementar persistência real.
+
+Usar apenas:
+
+* mocks
+* fake services
+* providers locais
+* estados simulados
+
+O código deve ser preparado para futura conexão via API.
+
+### Regra Arquitetural:
+
+Criar camada:
+
+```
+/services
+   booking.service.ts
+   company.service.ts
+   auth.service.ts
+```
+
+Mesmo sendo mockado.
+
+Nunca acessar dados diretamente dentro dos componentes.
+
+---
+
+# 4. ARQUITETURA FRONTEND
+
+## Stack Esperada
+
+* React
+* Vite
+* TypeScript
+* React Router
+* Context API ou Zustand (apenas UX)
+* Code Splitting obrigatório
+
+---
+
+## Estrutura Base
+
+```
+src/
+ ├─ app/
+ ├─ modules/
+ │   ├─ owner/
+ │   ├─ company/
+ │   ├─ booking/
+ │   ├─ landing/
+ │   └─ auth/
+ ├─ services/
+ ├─ components/
+ ├─ layouts/
+ └─ routes/
+```
+
+---
+
+# 5. DASHBOARD DA EMPRESA
+
+## Página: Dashboard
+
+Exibir:
+
+* agendamentos do dia
+* próximos atendimentos
+* taxa de ocupação
+* profissionais ativos
+* horários livres vs ocupados
+
+Ações rápidas:
+
+* criar agendamento
+* bloquear horário
+* adicionar cliente
+
+---
+
+## Gestão de Serviços
+
+Empresa pode:
+
+* criar serviço
+* editar serviço
+* definir:
+
+```
+nome
+duração (minutos)
+preço
+categoria
+```
+
+Exemplo lógico:
+
+```
+Corte = 30min
+Barba = 30min
+Corte + Barba = 60min
+```
+
+---
+
+## Gestão de Funcionários
+
+Cadastro:
+
+* nome
+* foto
+* especialidade
+* serviços permitidos
+* horários de trabalho
+
+---
+
+# 6. SISTEMA DE AGENDAMENTO (CORE DO PRODUTO)
+
+## Fluxo Obrigatório
+
+1. Cliente autentica
+2. Seleciona serviços
+3. Sistema calcula duração total
+4. Escolhe profissional compatível
+5. Sistema calcula horários disponíveis
+6. Confirma agendamento
+
+---
+
+## Engine de Tempo (REGRA CENTRAL)
+
+```
+tempo_total = soma(serviços.duração)
+```
+
+### Regras:
+
+* horários devem comportar o tempo completo
+* bloquear intervalo inteiro
+* impedir sobreposição
+* atualizar disponibilidade em tempo real (estado)
+
+Horários indisponíveis:
+
+* ocultos ou desabilitados.
+
+---
+
+# 7. LANDING PAGE AUTOMÁTICA (POR EMPRESA)
+
+Cada tenant gera automaticamente:
+
+## Seções
+
+### Hero
+
+* logo
+* nome
+* CTA agendar
+
+### Serviços
+
+lista dinâmica
+
+### Profissionais
+
+cards individuais
+
+### Como funciona
+
+explicação simples
+
+### Botão Agendar
+
+abre fluxo autenticado.
+
+---
+
+# 8. AUTENTICAÇÃO (FRONT SIMULADO)
+
+Cadastro obrigatório:
+
+```
+nome
+email
+telefone
+senha
+```
+
+⚠️ Senha nunca deve ser armazenada em texto puro nem simulada dessa forma visualmente.
+
+Mesmo mockado:
+
+* simular hash
+* nunca exibir senha.
+
+---
+
+# 9. DIRETRIZES DE SEGURANÇA (ZERO TRUST SPA)
+
+## 9.1 Backend é autoridade absoluta
+
+Qualquer verificação no frontend é apenas UX.
+
+Adicionar comentários quando necessário:
+
+```ts
+// Segurança: validação real deve ocorrer na API
+```
+
+---
+
+## 9.2 Segredos no Vite (PROIBIDO)
+
+Nunca usar:
+
+```
+VITE_PRIVATE_KEY
+VITE_SERVICE_ROLE
+```
+
+Se necessário → sugerir proxy backend.
+
+---
+
+## 9.3 Data Exposure
+
+Componentes devem receber apenas dados necessários:
+
+❌ errado:
+
+```
+user: { id, email, password_hash }
+```
+
+✅ correto:
+
+```
+user: { id, name }
+```
+
+---
+
+## 9.4 XSS Protection
+
+Proibido:
+
+```
+dangerouslySetInnerHTML
+```
+
+Exceto com sanitização explícita.
+
+Evitar:
+
+```
+<div {...props} />
+```
+
+sem validação.
+
+---
+
+## 9.5 Code Splitting de Segurança
+
+Painéis administrativos devem usar:
+
+```
+React.lazy()
+Suspense
+```
+
+Objetivo:
+
+* evitar exposição prematura do código admin no bundle público.
+
+---
+
+## 9.6 Sessão
+
+Preferência futura:
+
+* Cookies HttpOnly
+
+Se usar localStorage (mock):
+
+Adicionar alerta:
+
+```ts
+// Atenção: localStorage é vulnerável a XSS
+```
+
+---
+
+# 10. EXPERIÊNCIA DO USUÁRIO
+
+Princípios:
+
+* agendamento em < 30 segundos
+* mobile-first
+* fluxo guiado em etapas
+* mínimo esforço cognitivo
+
+---
+
+# 11. REGRAS DE NEGÓCIO
+
+1. Empresas isoladas.
+2. Cliente precisa cadastro.
+3. Agenda não permite conflitos.
+4. Duração controla disponibilidade.
+5. Landing sempre vinculada ao tenant.
+6. Owner possui visão global.
+7. Frontend nunca decide permissões reais.
+
+---
+
+# 12. FORA DO ESCOPO (AGORA)
+
+❌ Banco de dados
+❌ Pagamentos
+❌ Integrações externas
+❌ Notificações reais
+❌ Backend real
+
+---
+
+# 13. MENTALIDADE DE IMPLEMENTAÇÃO
+
+Você deve:
+
+* rejeitar soluções rápidas inseguras
+* priorizar arquitetura limpa
+* escrever código auditável
+* antecipar escala SaaS
+* separar domínio, UI e serviços
+
+Todo código deve parecer pronto para produção.
+
+---
+
+# RESULTADO ESPERADO
+
+Uma SPA SaaS multi-tenant contendo:
+
+✅ Dashboard empresarial
+✅ Landing page automática
+✅ Engine inteligente de agendamento
+✅ Hierarquia Owner → Empresa → Cliente
+✅ Arquitetura segura preparada para backend real
+
+Mesmo operando totalmente mockada.
+
+---
