@@ -71,15 +71,25 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
 
     const initTenant = async () => {
+      const slug = sessionStorage.getItem("tenant_slug");
+
       if (profile?.role === "owner") {
-        const slug = sessionStorage.getItem("tenant_slug");
+        // Platform owner: restaurar empresa selecionada ou deixar null
         if (slug) {
           const { data } = await companyService.getBySlug(slug);
           setCurrentCompanyState(data ?? null);
         }
       } else if (profile?.company_id) {
+        // company_admin/employee: prioridade para company_id do perfil
         const { data } = await companyService.getById(profile.company_id);
         setCurrentCompanyState(data ?? null);
+      } else {
+        // Usuário em company_members (sem profile.company_id): restaurar ou primeira empresa
+        const { data: companies } = await companyService.list();
+        if (companies?.length) {
+          const bySlug = slug ? companies.find((c) => c.slug === slug) : null;
+          setCurrentCompanyState(bySlug ?? companies[0] ?? null);
+        }
       }
       setIsLoading(false);
     };

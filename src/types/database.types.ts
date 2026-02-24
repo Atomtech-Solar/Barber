@@ -3,12 +3,17 @@ export type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancell
 
 export interface Company {
   id: string;
+  owner_id: string | null;
   name: string;
   slug: string;
   logo: string | null;
+  logo_url: string | null;
+  cnpj: string | null;
+  email: string | null;
+  owner_name: string | null;
+  owner_phone: string | null;
   slogan: string | null;
   phone: string | null;
-  email: string | null;
   status: 'active' | 'blocked';
   created_at: string;
   updated_at: string;
@@ -51,6 +56,16 @@ export interface Professional {
 export interface ProfessionalService {
   professional_id: string;
   service_id: string;
+}
+
+export type CompanyMemberRole = 'owner' | 'admin' | 'staff';
+
+export interface CompanyMember {
+  id: string;
+  user_id: string;
+  company_id: string;
+  role: CompanyMemberRole;
+  created_at: string;
 }
 
 export interface WorkingHour {

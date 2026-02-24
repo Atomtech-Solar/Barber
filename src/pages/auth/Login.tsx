@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Scissors } from "lucide-react";
+import { ArrowLeft, Scissors } from "lucide-react";
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -28,7 +28,14 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background relative">
+      <Link
+        to="/"
+        className="absolute top-4 left-4 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft size={18} />
+        Voltar para seleção
+      </Link>
       <div className="w-full max-w-md space-y-8 animate-fade-in">
         <div className="text-center">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">

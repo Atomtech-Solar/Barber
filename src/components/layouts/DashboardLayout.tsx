@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/hooks/useAuth";
 import {
   LayoutDashboard, Calendar, Users, Scissors, UserCheck, DollarSign,
   Package, ShoppingCart, BarChart3, Settings, Bell, Plus, ChevronLeft,
-  ChevronRight
+  ChevronRight, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { currentCompany } = useTenant();
+  const { profile, user, signOut } = useAuth();
 
   return (
     <div className="flex h-screen bg-background">
@@ -79,6 +81,9 @@ const DashboardLayout = () => {
             {currentCompany?.name ?? "Empresa"}
           </h2>
           <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {profile?.full_name ?? user?.email ?? "Usuário"}
+            </span>
             <Button variant="outline" size="sm">
               <Bell size={16} className="mr-2" />
               <span className="hidden sm:inline">Notificações</span>
@@ -89,6 +94,10 @@ const DashboardLayout = () => {
                 <span className="hidden sm:inline">Novo Agendamento</span>
               </Button>
             </Link>
+            <Button variant="ghost" size="sm" onClick={() => signOut()}>
+              <LogOut size={16} className="mr-2" />
+              <span className="hidden sm:inline">Sair</span>
+            </Button>
           </div>
         </header>
 

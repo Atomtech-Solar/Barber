@@ -2,14 +2,33 @@
 
 ## 1. Executar as migrações
 
-1. Acesse o [Supabase Dashboard](https://supabase.com/dashboard)
-2. Selecione seu projeto
-3. Vá em **SQL Editor**
-4. Execute **na ordem**:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_get_own_profile_rpc.sql` (obrigatório para carregar perfil)
+### Opção A: Script automático (recomendado)
 
-A migração 002 cria a função `get_own_profile()` que evita problemas de RLS ao carregar o perfil após login.
+1. Supabase Dashboard > **Settings** > **Database** > **Connection string** (URI)
+2. Copie a connection string (formato: `postgresql://postgres.[ref]:[SENHA]@...`)
+3. Crie `.env.local` com:
+   ```
+   SUPABASE_DB_URL="postgresql://postgres.xxx:SUA_SENHA@aws-0-xx.pooler.supabase.com:6543/postgres"
+   ```
+4. Execute: `npm run db:migrate`
+
+### Opção B: Supabase CLI
+
+```bash
+npx supabase link --project-ref SEU_PROJECT_REF
+npx supabase db push
+```
+
+### Opção C: Manual (SQL Editor)
+
+1. Acesse o [Supabase Dashboard](https://supabase.com/dashboard) > **SQL Editor**
+2. Execute **na ordem** cada arquivo em `supabase/migrations/`:
+   - 001_initial_schema.sql
+   - 002_get_own_profile_rpc.sql
+   - 003_companies_extended.sql
+   - 004_multi_tenant_architecture.sql
+   - 005_fix_companies_insert_rls.sql
+   - 006_fix_profiles_rls_recursion.sql
 
 ## 2. Criar o primeiro usuário Owner
 

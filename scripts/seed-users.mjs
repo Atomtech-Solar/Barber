@@ -61,12 +61,17 @@ async function main() {
     user_metadata: { full_name: CREDENTIALS.admin.fullName },
   });
 
+  let adminUserId = adminUser?.user?.id;
   if (adminError) {
     if (adminError.message?.includes("already been registered") || adminError.message?.includes("already exists")) {
       console.log("Admin já existe. Atualizando role...\n");
       const { data: { users } } = await supabase.auth.admin.listUsers();
       const adm = users?.find((u) => u.email === CREDENTIALS.admin.email);
-      if (adm) await supabase.from("profiles").update({ role: "owner" }).eq("id", adm.id);
+      if (adm) {
+        adminUserId = adm.id;
+        await supabase.from("profiles").update({ role: "owner" }).eq("id", adm.id);
+        if (companyId) await supabase.from("companies").update({ owner_id: adm.id }).eq("id", companyId);
+      }
     } else {
       console.error("Erro ao criar admin:", adminError.message, adminError);
       process.exit(1);
@@ -77,6 +82,9 @@ async function main() {
       { onConflict: "id" }
     );
     if (profileErr) await supabase.from("profiles").update({ role: "owner" }).eq("id", adminUser.user.id);
+    if (companyId && adminUser.user.id) {
+      await supabase.from("companies").update({ owner_id: adminUser.user.id }).eq("id", companyId);
+    }
     console.log("Admin criado com sucesso!\n");
   }
 

@@ -1,9 +1,12 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Building2, Shield } from "lucide-react";
+import { Building2, LogOut, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 const AdminLayout = () => {
   const location = useLocation();
+  const { signOut } = useAuth();
 
   return (
     <div className="flex h-screen bg-background">
@@ -29,8 +32,17 @@ const AdminLayout = () => {
             <span>Empresas</span>
           </Link>
         </nav>
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border space-y-2">
           <p className="text-xs text-muted-foreground">Super Admin</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start gap-2"
+            onClick={() => signOut()}
+          >
+            <LogOut size={16} />
+            Sair
+          </Button>
         </div>
       </aside>
       <main className="flex-1 overflow-auto p-8">

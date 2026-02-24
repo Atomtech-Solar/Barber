@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Eye, Lock, Unlock, Pencil, Trash2 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/hooks/useAuth";
 import { companyService } from "@/services/company.service";
 import type { Company } from "@/types/database.types";
+import { CompanyCreateForm } from "@/components/admin/CompanyCreateForm";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +34,7 @@ import {
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { setCurrentCompany } = useTenant();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Company | null>(null);
@@ -39,6 +43,7 @@ const AdminDashboard = () => {
     name: "",
     slug: "",
     logo: "",
+    logo_url: "",
     slogan: "",
     phone: "",
     email: "",
@@ -46,23 +51,42 @@ const AdminDashboard = () => {
 
   const { data: companiesData } = useQuery({
     queryKey: ["companies"],
-    queryFn: () => companyService.list(),
+    queryFn: async () => {
+      const { data, error } = await companyService.list();
+      if (error) throw new Error((error as { message?: string })?.message ?? "Erro ao carregar empresas");
+      return data ?? [];
+    },
   });
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      companyService.create({
-        name: form.name,
-        slug: form.slug || form.name,
-        logo: form.logo || undefined,
-        slogan: form.slogan || undefined,
-        phone: form.phone || undefined,
-        email: form.email || undefined,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["companies"] });
+    mutationFn: async (values: {
+      name: string;
+      slug: string;
+      logo_url?: string;
+      cnpj?: string;
+      email: string;
+      owner_name: string;
+      owner_phone: string;
+      slogan?: string;
+    }) => {
+      if (!user?.id) {
+        throw new Error("Usuário não autenticado. Faça login novamente.");
+      }
+      const result = await companyService.create({
+        owner_id: user.id,
+        ...values,
+        slug: values.slug || values.name,
+      });
+      return result.data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["companies"] });
       setCreating(false);
-      setForm({ name: "", slug: "", logo: "", slogan: "", phone: "", email: "" });
+      toast.success("Empresa cadastrada com sucesso!");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Erro ao cadastrar empresa.");
+      if (import.meta.env.DEV) console.error("[AdminDashboard] create error:", err);
     },
   });
 
@@ -105,7 +129,7 @@ const AdminDashboard = () => {
     navigate("/app");
   };
 
-  const companies = companiesData?.data ?? [];
+  const companies = companiesData ?? [];
 
   return (
     <PageContainer
@@ -130,8 +154,16 @@ const AdminDashboard = () => {
               className="bg-card border border-border rounded-xl p-5 flex items-center justify-between"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl">
-                  {company.logo || "🏢"}
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl overflow-hidden">
+                  {(company.logo_url ?? company.logo) ? (
+                    <img
+                      src={(company.logo_url ?? company.logo)!}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    "🏢"
+                  )}
                 </div>
                 <div>
                   <h3 className="font-semibold">{company.name}</h3>
@@ -172,6 +204,7 @@ const AdminDashboard = () => {
                       name: company.name,
                       slug: company.slug,
                       logo: company.logo ?? "",
+                      logo_url: company.logo_url ?? company.logo ?? "",
                       slogan: company.slogan ?? "",
                       phone: company.phone ?? "",
                       email: company.email ?? "",
@@ -195,70 +228,32 @@ const AdminDashboard = () => {
       </div>
 
       <Dialog open={creating} onOpenChange={setCreating}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova Empresa</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Nome</Label>
-              <Input
-                value={form.name}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    name: e.target.value,
-                    slug: f.slug || e.target.value.toLowerCase().replace(/\s+/g, "-"),
-                  }))
-                }
-                placeholder="Nome da empresa"
-              />
-            </div>
-            <div>
-              <Label>Slug (URL)</Label>
-              <Input
-                value={form.slug}
-                onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-                placeholder="empresa-nome"
-              />
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="contato@empresa.com"
-              />
-            </div>
-            <div>
-              <Label>Telefone</Label>
-              <Input
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                placeholder="(11) 99999-0000"
-              />
-            </div>
-            <div>
-              <Label>Slogan (opcional)</Label>
-              <Input
-                value={form.slogan}
-                onChange={(e) => setForm((f) => ({ ...f, slogan: e.target.value }))}
-                placeholder="Seu estilo, nossa arte"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreating(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => createMutation.mutate()}
-              disabled={!form.name || !form.slug}
-            >
-              Criar
-            </Button>
-          </DialogFooter>
+          <CompanyCreateForm
+            onSubmit={async (values) => {
+              const slug = values.name
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/\s+/g, "-")
+                .replace(/[^a-z0-9-]/g, "");
+              await createMutation.mutateAsync({
+                name: values.name,
+                slug: slug || values.name,
+                email: values.email,
+                owner_name: values.owner_name,
+                owner_phone: values.owner_phone,
+                cnpj: values.cnpj || undefined,
+                slogan: values.slogan || undefined,
+                logo_url: values.logo_url,
+              });
+            }}
+            onCancel={() => setCreating(false)}
+            isLoading={createMutation.isPending}
+          />
         </DialogContent>
       </Dialog>
 
