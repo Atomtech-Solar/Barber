@@ -15,6 +15,12 @@ export interface Company {
   slogan: string | null;
   phone: string | null;
   status: 'active' | 'blocked';
+  /** Data em que o plano foi iniciado (admin) */
+  active_from: string | null;
+  /** Quantidade de dias que a empresa ficará ativa (admin) */
+  active_days: number | null;
+  /** Observações do admin */
+  admin_obs: string | null;
   created_at: string;
   updated_at: string;
 }

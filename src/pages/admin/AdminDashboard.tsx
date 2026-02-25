@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +48,9 @@ const AdminDashboard = () => {
     slogan: "",
     phone: "",
     email: "",
+    active_from: "",
+    active_days: "",
+    admin_obs: "",
   });
 
   const { data: companiesData } = useQuery({
@@ -99,6 +103,9 @@ const AdminDashboard = () => {
         slogan: form.slogan || undefined,
         phone: form.phone || undefined,
         email: form.email || undefined,
+        active_from: form.active_from || null,
+        active_days: form.active_days ? parseInt(form.active_days, 10) : null,
+        admin_obs: form.admin_obs || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
@@ -165,11 +172,24 @@ const AdminDashboard = () => {
                     "🏢"
                   )}
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3 className="font-semibold">{company.name}</h3>
                   <p className="text-sm text-muted-foreground">
                     {[company.email, company.phone].filter(Boolean).join(" · ") || "—"}
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span title="Dia iniciado">
+                      Início: {company.active_from ? new Date(company.active_from).toLocaleDateString("pt-BR") : "—"}
+                    </span>
+                    <span title="Dias ativo">
+                      Ativo por: {company.active_days != null ? `${company.active_days} dias` : "—"}
+                    </span>
+                    {company.admin_obs && (
+                      <span className="max-w-[200px] truncate" title={company.admin_obs}>
+                        OBS: {company.admin_obs}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -208,6 +228,9 @@ const AdminDashboard = () => {
                       slogan: company.slogan ?? "",
                       phone: company.phone ?? "",
                       email: company.email ?? "",
+                      active_from: company.active_from ?? "",
+                      active_days: company.active_days != null ? String(company.active_days) : "",
+                      admin_obs: company.admin_obs ?? "",
                     });
                   }}
                 >
@@ -298,6 +321,41 @@ const AdminDashboard = () => {
                 value={form.slogan}
                 onChange={(e) => setForm((f) => ({ ...f, slogan: e.target.value }))}
               />
+            </div>
+            <div className="border-t pt-4">
+              <p className="mb-3 text-sm font-medium text-muted-foreground">Controle do admin</p>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="active_from">Dia iniciado</Label>
+                  <Input
+                    id="active_from"
+                    type="date"
+                    value={form.active_from}
+                    onChange={(e) => setForm((f) => ({ ...f, active_from: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="active_days">Ativo por (dias)</Label>
+                  <Input
+                    id="active_days"
+                    type="number"
+                    min={1}
+                    placeholder="Ex: 30"
+                    value={form.active_days}
+                    onChange={(e) => setForm((f) => ({ ...f, active_days: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="admin_obs">OBS</Label>
+                  <Textarea
+                    id="admin_obs"
+                    placeholder="Observações sobre a empresa..."
+                    value={form.admin_obs}
+                    onChange={(e) => setForm((f) => ({ ...f, admin_obs: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>

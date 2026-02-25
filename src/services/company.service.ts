@@ -26,6 +26,12 @@ export interface UpdateCompanyParams {
   owner_name?: string;
   owner_phone?: string;
   status?: "active" | "blocked";
+  /** Data em que o plano foi iniciado (admin) */
+  active_from?: string | null;
+  /** Quantidade de dias ativo (admin) */
+  active_days?: number | null;
+  /** Observações do admin */
+  admin_obs?: string | null;
 }
 
 export const companyService = {
