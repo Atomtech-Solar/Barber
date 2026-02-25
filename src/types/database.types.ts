@@ -1,5 +1,5 @@
 export type UserRole = 'owner' | 'company_admin' | 'employee' | 'client';
-export type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'blocked';
+export type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'blocked' | 'no_show';
 
 export interface Company {
   id: string;
@@ -85,13 +85,17 @@ export interface WorkingHour {
 export interface Appointment {
   id: string;
   company_id: string;
-  client_id: string;
+  client_id: string | null;
+  /** Cliente walk-in (sem conta) */
+  client_name: string | null;
+  client_phone: string | null;
   professional_id: string;
   date: string;
   start_time: string;
   duration_minutes: number;
   status: AppointmentStatus;
   notes: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }

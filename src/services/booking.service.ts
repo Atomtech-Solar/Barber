@@ -14,6 +14,34 @@ export interface CreateAppointmentParams {
   notes?: string;
 }
 
+/** Params para admin criar agendamento (cliente walk-in, sem conta) */
+export interface CreateAdminAppointmentParams {
+  company_id: string;
+  client_name: string;
+  client_phone: string;
+  professional_id: string;
+  date: string;
+  start_time: string;
+  duration_minutes: number;
+  service_ids: string[];
+  status?: Appointment["status"];
+  notes?: string | null;
+  created_by: string;
+}
+
+/** Params para atualizar agendamento */
+export interface UpdateAppointmentParams {
+  client_name?: string;
+  client_phone?: string;
+  professional_id?: string;
+  date?: string;
+  start_time?: string;
+  duration_minutes?: number;
+  status?: Appointment["status"];
+  notes?: string | null;
+  service_ids?: string[];
+}
+
 export interface AvailableSlot {
   startTime: string;
   endTime: string;
@@ -149,6 +177,118 @@ export const bookingService = {
       .select()
       .single();
     return { data: data as Appointment | null, error };
+  },
+
+  async getById(id: string) {
+    const { data: apt, error: aptError } = await supabase
+      .from("appointments")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (aptError || !apt) return { data: null, error: aptError };
+    const { data: svcLinks } = await supabase
+      .from("appointment_services")
+      .select("service_id")
+      .eq("appointment_id", id);
+    const serviceIds = (svcLinks ?? []).map((s) => s.service_id);
+    let client_name = (apt as Appointment).client_name;
+    let client_phone = (apt as Appointment).client_phone;
+    if (
+      ((apt as Appointment).client_id && !client_name) ||
+      ((apt as Appointment).client_id && !client_phone)
+    ) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name, phone")
+        .eq("id", (apt as Appointment).client_id)
+        .single();
+      if (prof) {
+        client_name = client_name ?? prof?.full_name ?? null;
+        client_phone = client_phone ?? prof?.phone ?? null;
+      }
+    }
+    return {
+      data: {
+        ...apt,
+        client_name,
+        client_phone,
+        service_ids: serviceIds,
+      } as Appointment & { service_ids: string[] },
+      error: null,
+    };
+  },
+
+  async createAdmin(params: CreateAdminAppointmentParams) {
+    const { data: apt, error: aptError } = await supabase
+      .from("appointments")
+      .insert({
+        company_id: params.company_id,
+        client_id: null,
+        client_name: params.client_name,
+        client_phone: params.client_phone,
+        professional_id: params.professional_id,
+        date: params.date,
+        start_time: params.start_time,
+        duration_minutes: params.duration_minutes,
+        status: params.status ?? "confirmed",
+        notes: params.notes ?? null,
+        created_by: params.created_by,
+      })
+      .select()
+      .single();
+
+    if (aptError) return { data: null, error: aptError };
+
+    if (params.service_ids?.length) {
+      await supabase.from("appointment_services").insert(
+        params.service_ids.map((sid) => ({
+          appointment_id: (apt as Appointment).id,
+          service_id: sid,
+        }))
+      );
+    }
+
+    return { data: apt as Appointment, error: null };
+  },
+
+  async update(id: string, params: UpdateAppointmentParams) {
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+      ...(params.client_name !== undefined && { client_name: params.client_name }),
+      ...(params.client_phone !== undefined && { client_phone: params.client_phone }),
+      ...(params.professional_id !== undefined && { professional_id: params.professional_id }),
+      ...(params.date !== undefined && { date: params.date }),
+      ...(params.start_time !== undefined && { start_time: params.start_time }),
+      ...(params.duration_minutes !== undefined && { duration_minutes: params.duration_minutes }),
+      ...(params.status !== undefined && { status: params.status }),
+      ...(params.notes !== undefined && { notes: params.notes }),
+    };
+
+    const { data: apt, error: aptError } = await supabase
+      .from("appointments")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (aptError) return { data: null, error: aptError };
+
+    if (params.service_ids !== undefined) {
+      await supabase.from("appointment_services").delete().eq("appointment_id", id);
+      if (params.service_ids.length > 0) {
+        await supabase.from("appointment_services").insert(
+          params.service_ids.map((sid) => ({ appointment_id: id, service_id: sid }))
+        );
+      }
+    }
+
+    return { data: apt as Appointment, error: null };
+  },
+
+  async delete(id: string) {
+    await supabase.from("appointment_services").delete().eq("appointment_id", id);
+    const { error } = await supabase.from("appointments").delete().eq("id", id);
+    return { error };
   },
 
   async getTodayStats(companyId: string) {
