@@ -22,6 +22,7 @@ import { Trash2 } from "lucide-react";
 import { maskPhone } from "@/lib/masks";
 import { setHours, setMinutes, addMinutes, format } from "date-fns";
 import type { Appointment, Professional, Service } from "@/types/database.types";
+import type { CompanyClientWithVisitCount } from "@/services/client.service";
 import type { AppointmentStatus } from "@/types/database.types";
 
 function parseTimeToDate(t: string): Date {
@@ -77,6 +78,7 @@ interface AppointmentFormModalProps {
   appointment?: Appointment & { service_ids?: string[] } | null;
   services: Service[];
   professionals: Professional[];
+  clients?: CompanyClientWithVisitCount[];
   appointments?: Appointment[];
   companyId: string;
   createdBy: string;
@@ -106,6 +108,7 @@ export function AppointmentFormModal({
   appointment,
   services,
   professionals,
+  clients = [],
   appointments = [],
   companyId,
   createdBy,
@@ -165,14 +168,46 @@ export function AppointmentFormModal({
 
   const [values, setValues] = useState<FormValues>(getDefaultValues);
 
+  const getInitialClientSelectValue = (): string => {
+    const v = getDefaultValues();
+    if (!v.client_name && !v.client_phone) return "";
+    const match = clients.find(
+      (c) =>
+        (c.full_name || "").trim() === (v.client_name || "").trim() &&
+        (c.phone || "").replace(/\D/g, "") === (v.client_phone || "").replace(/\D/g, "")
+    );
+    return match?.id ?? "__other__";
+  };
+
+  const [clientSelectValue, setClientSelectValue] = useState(getInitialClientSelectValue);
+
   useEffect(() => {
-    if (open) setValues(getDefaultValues());
+    if (open) {
+      setValues(getDefaultValues());
+      setClientSelectValue(getInitialClientSelectValue());
+    }
   }, [open, isCreate, initialSlot?.date, initialSlot?.startTime, appointment?.id]);
 
   const duration = values.service_ids.reduce(
     (acc, sid) => acc + (services.find((s) => s.id === sid)?.duration_minutes ?? 0),
     0
   );
+
+  const handleClientSelect = (value: string) => {
+    setClientSelectValue(value);
+    if (value === "__other__") {
+      setValues((v) => ({ ...v, client_name: "", client_phone: "" }));
+      return;
+    }
+    const c = clients.find((x) => x.id === value);
+    if (c) {
+      setValues((v) => ({
+        ...v,
+        client_name: c.full_name,
+        client_phone: c.phone ?? "",
+      }));
+    }
+  };
 
   const toggleService = (serviceId: string) => {
     setValues((v) => {
@@ -191,6 +226,7 @@ export function AppointmentFormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (values.service_ids.length === 0) return;
+    if (!values.client_name?.trim()) return;
     await onSubmit({ ...values, duration_minutes: duration });
     onOpenChange(false);
   };
@@ -224,25 +260,49 @@ export function AppointmentFormModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Cliente */}
           <div className="space-y-2">
-            <Label htmlFor="client_name">Qual cliente será atendido? *</Label>
-            <div className="grid grid-cols-[1fr_180px] gap-3">
-              <Input
-                id="client_name"
-                value={values.client_name}
-                onChange={(e) => setValues((v) => ({ ...v, client_name: e.target.value }))}
-                placeholder="Nome do cliente"
-                required
-              />
-              <Input
-                id="client_phone"
-                value={values.client_phone}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, client_phone: maskPhone(e.target.value) }))
-                }
-                placeholder="(00) 00000-0000"
-                required
-              />
-            </div>
+            <Label>Qual cliente será atendido? *</Label>
+            <Select
+              value={clientSelectValue}
+              onValueChange={handleClientSelect}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.full_name}
+                    {c.phone ? ` · ${c.phone}` : ""}
+                  </SelectItem>
+                ))}
+                <SelectItem value="__other__">Outro (informar manualmente)</SelectItem>
+              </SelectContent>
+            </Select>
+            {clientSelectValue === "__other__" && (
+              <div className="grid grid-cols-[1fr_180px] gap-3 mt-2">
+                <Input
+                  id="client_name"
+                  value={values.client_name}
+                  onChange={(e) => setValues((v) => ({ ...v, client_name: e.target.value }))}
+                  placeholder="Nome do cliente"
+                  required={clientSelectValue === "__other__"}
+                />
+                <Input
+                  id="client_phone"
+                  value={values.client_phone}
+                  onChange={(e) =>
+                    setValues((v) => ({ ...v, client_phone: maskPhone(e.target.value) }))
+                  }
+                  placeholder="(00) 00000-0000"
+                  required={clientSelectValue === "__other__"}
+                />
+              </div>
+            )}
+            {clients.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Nenhum cliente cadastrado. Cadastre na aba Clientes ou use &quot;Outro&quot; para informar manualmente.
+              </p>
+            )}
           </div>
 
           {/* Funcionário */}
@@ -410,7 +470,7 @@ export function AppointmentFormModal({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isLoading || isPast() || isSelectedProfessionalBusy() || values.service_ids.length === 0}>
+              <Button type="submit" disabled={isLoading || isPast() || isSelectedProfessionalBusy() || values.service_ids.length === 0 || !values.client_name?.trim()}>
                 {isLoading ? "Salvando..." : "Salvar"}
               </Button>
             </div>

@@ -32,6 +32,16 @@ export function isValidCnpj(value: string): boolean {
   return check === parseInt(digits[13]);
 }
 
+/** Aplica máscara CPF: 000.000.000-00 */
+export function maskCpf(value: string): string {
+  return value
+    .replace(/\D/g, "")
+    .slice(0, 11)
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
 /** Aplica máscara telefone: (00) 00000-0000 ou (00) 0000-0000 */
 export function maskPhone(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 11);

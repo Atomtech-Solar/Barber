@@ -54,6 +54,8 @@ export interface Professional {
   name: string;
   photo_url: string | null;
   specialty: string | null;
+  phone: string | null;
+  email: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -115,4 +117,51 @@ export interface AppointmentWithDetails extends Appointment {
   services?: Service[];
   professional?: Professional;
   client?: Profile;
+}
+
+export interface CompanyClient {
+  id: string;
+  company_id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  cpf: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type StockUnit = 'unidade' | 'ml' | 'g' | 'frasco' | 'caixa';
+export type StockMovementType = 'entry' | 'usage' | 'sale' | 'adjustment';
+
+export interface StockProduct {
+  id: string;
+  company_id: string;
+  name: string;
+  category: string | null;
+  brand: string | null;
+  description: string | null;
+  unit: StockUnit;
+  minimum_stock: number;
+  image_url: string | null;
+  cost_price: number | null;
+  sale_price: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StockMovement {
+  id: string;
+  company_id: string;
+  product_id: string;
+  movement_type: StockMovementType;
+  quantity: number;
+  reason: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface StockProductWithQuantity extends StockProduct {
+  current_quantity: number;
 }

@@ -6,6 +6,8 @@ export interface CreateProfessionalParams {
   name: string;
   photo_url?: string;
   specialty?: string;
+  phone?: string;
+  email?: string;
   profile_id?: string;
 }
 
@@ -13,6 +15,8 @@ export interface UpdateProfessionalParams {
   name?: string;
   photo_url?: string;
   specialty?: string;
+  phone?: string;
+  email?: string;
   is_active?: boolean;
 }
 
@@ -112,6 +116,8 @@ export const professionalService = {
         name: params.name,
         photo_url: params.photo_url ?? null,
         specialty: params.specialty ?? null,
+        phone: params.phone ?? null,
+        email: params.email ?? null,
         profile_id: params.profile_id ?? null,
       })
       .select()

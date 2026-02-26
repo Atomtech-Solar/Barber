@@ -1,12 +1,45 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PageContainer from "@/components/shared/PageContainer";
 import { useTenant } from "@/contexts/TenantContext";
 import { clientService } from "@/services/client.service";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import type { CompanyClientWithVisitCount } from "@/services/client.service";
+import { ClientFormModal } from "@/components/app/ClientFormModal";
 
 const AppClients = () => {
+  const queryClient = useQueryClient();
   const { currentCompany } = useTenant();
   const companyId = currentCompany?.id ?? "";
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<CompanyClientWithVisitCount | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { data: clientsData } = useQuery({
     queryKey: ["clients", companyId],
@@ -16,37 +49,157 @@ const AppClients = () => {
 
   const clients = clientsData?.data ?? [];
 
+  const createMutation = useMutation({
+    mutationFn: (v: { full_name: string; phone: string; email: string; cpf: string; notes: string }) =>
+      clientService.create(companyId, v),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setModalOpen(false);
+      toast.success("Cliente adicionado!");
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Erro ao adicionar cliente.");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      values,
+    }: {
+      id: string;
+      values: { full_name: string; phone: string; email: string; cpf: string; notes: string };
+    }) => clientService.update(id, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setEditingClient(null);
+      toast.success("Cliente atualizado!");
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Erro ao atualizar.");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => clientService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setDeletingId(null);
+      toast.success("Cliente removido.");
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Erro ao remover.");
+    },
+  });
+
   return (
-    <PageContainer title="Clientes" description="Clientes que já agendaram na empresa">
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Telefone</TableHead>
-              <TableHead>Visitas</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {clients.length === 0 ? (
+    <>
+      <PageContainer
+        title="Clientes"
+        description="Cadastre e gerencie os clientes da empresa"
+        actions={
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus size={16} className="mr-2" />
+            Adicionar cliente
+          </Button>
+        }
+      >
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                  Nenhum cliente encontrado
-                </TableCell>
+                <TableHead>Nome</TableHead>
+                <TableHead>Telefone</TableHead>
+                <TableHead>E-mail</TableHead>
+                <TableHead>CPF</TableHead>
+                <TableHead>Visitas</TableHead>
+                <TableHead className="w-[50px]" />
               </TableRow>
-            ) : (
-              clients.map((c) => (
-                <TableRow key={c.id} className="cursor-pointer hover:bg-secondary/50">
-                  <TableCell className="font-medium">{c.full_name}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.phone ?? "—"}</TableCell>
-                  <TableCell>{c.visit_count}</TableCell>
+            </TableHeader>
+            <TableBody>
+              {clients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
+                    Nenhum cliente cadastrado. Clique em "Adicionar cliente" para começar.
+                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </PageContainer>
+              ) : (
+                clients.map((c) => (
+                  <TableRow key={c.id} className="hover:bg-secondary/50">
+                    <TableCell className="font-medium">{c.full_name}</TableCell>
+                    <TableCell className="text-muted-foreground">{c.phone ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{c.email ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{c.cpf ?? "—"}</TableCell>
+                    <TableCell>{c.visit_count}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal size={16} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setEditingClient(c)}>
+                            <Pencil size={14} className="mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeletingId(c.id)}
+                          >
+                            <Trash2 size={14} className="mr-2" />
+                            Remover
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </PageContainer>
+
+      <ClientFormModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        mode="create"
+        onSubmit={(v) => createMutation.mutateAsync(v)}
+        isLoading={createMutation.isPending}
+      />
+
+      <ClientFormModal
+        open={!!editingClient}
+        onOpenChange={(o) => !o && setEditingClient(null)}
+        mode="edit"
+        client={editingClient}
+        onSubmit={(v) =>
+          editingClient && updateMutation.mutateAsync({ id: editingClient.id, values: v })
+        }
+        isLoading={updateMutation.isPending}
+      />
+
+      <AlertDialog open={!!deletingId} onOpenChange={(o) => !o && setDeletingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover cliente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O cliente será removido do cadastro.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingId && deleteMutation.mutate(deletingId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Removendo..." : "Remover"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

@@ -57,24 +57,30 @@ const Index = () => {
             </div>
           </Button>
         </Link>
-        <Link to="/site/barbearia-premium" className="block">
-          <Button variant="outline" className="w-full justify-start gap-3 h-14">
+        <div className="block relative">
+          <Button variant="outline" className="w-full justify-start gap-3 h-14 opacity-60 cursor-not-allowed" disabled>
             <Scissors size={20} className="text-primary shrink-0" />
             <div className="text-left">
               <p className="font-medium">Landing Page</p>
               <p className="text-xs text-muted-foreground">Página pública da empresa</p>
             </div>
           </Button>
-        </Link>
-        <Link to="/client" className="block">
-          <Button variant="outline" className="w-full justify-start gap-3 h-14">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded">
+            futuro
+          </span>
+        </div>
+        <div className="block relative">
+          <Button variant="outline" className="w-full justify-start gap-3 h-14 opacity-60 cursor-not-allowed" disabled>
             <User size={20} className="text-primary shrink-0" />
             <div className="text-left">
               <p className="font-medium">Área do Cliente</p>
               <p className="text-xs text-muted-foreground">Agendamentos e perfil</p>
             </div>
           </Button>
-        </Link>
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded">
+            futuro
+          </span>
+        </div>
       </div>
     </div>
   </div>

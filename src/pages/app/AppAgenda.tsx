@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/hooks/useAuth";
 import { bookingService } from "@/services/booking.service";
+import { clientService } from "@/services/client.service";
 import { professionalService } from "@/services/professional.service";
 import { serviceService } from "@/services/service.service";
 import { format, addWeeks, subWeeks, startOfWeek, setHours, setMinutes } from "date-fns";
@@ -79,6 +80,12 @@ const AppAgenda = () => {
     enabled: !!companyId,
   });
 
+  const { data: clientsData } = useQuery({
+    queryKey: ["clients", companyId],
+    queryFn: () => clientService.listByCompany(companyId),
+    enabled: !!companyId,
+  });
+
   const { data: appointmentsData } = useQuery({
     queryKey: ["appointments", companyId, startDate, endDate],
     queryFn: () => bookingService.listByCompany(companyId, startDate, endDate),
@@ -93,6 +100,7 @@ const AppAgenda = () => {
 
   const professionals = professionalsData?.data ?? [];
   const services = servicesData?.data ?? [];
+  const clients = clientsData?.data ?? [];
   const appointments = appointmentsData?.data ?? [];
   const appointment = editingAppointment?.data ?? null;
 
@@ -441,6 +449,7 @@ const AppAgenda = () => {
         }
         services={services}
         professionals={professionals}
+        clients={clients}
         appointments={appointments}
         companyId={companyId}
         createdBy={user?.id ?? ""}
@@ -455,6 +464,7 @@ const AppAgenda = () => {
         appointment={appointment}
         services={services}
         professionals={professionals}
+        clients={clients}
         appointments={appointments}
         companyId={companyId}
         createdBy={user?.id ?? ""}

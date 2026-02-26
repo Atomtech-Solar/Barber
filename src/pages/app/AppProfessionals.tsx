@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PageContainer from "@/components/shared/PageContainer";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Mail, Phone } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { professionalService } from "@/services/professional.service";
 import { serviceService } from "@/services/service.service";
@@ -29,6 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { maskPhone } from "@/lib/masks";
 
 const DAYS = [
   { value: 1, label: "Segunda" },
@@ -50,6 +51,8 @@ const AppProfessionals = () => {
     name: "",
     specialty: "",
     photo_url: "",
+    phone: "",
+    email: "",
     serviceIds: [] as string[],
     workingHours: DAYS.map((d) => ({
       day_of_week: d.value,
@@ -83,6 +86,8 @@ const AppProfessionals = () => {
           name: form.name,
           specialty: form.specialty || undefined,
           photo_url: form.photo_url || undefined,
+          phone: form.phone || undefined,
+          email: form.email || undefined,
         },
         form.serviceIds,
         form.workingHours
@@ -102,6 +107,8 @@ const AppProfessionals = () => {
           name: form.name,
           specialty: form.specialty || undefined,
           photo_url: form.photo_url || undefined,
+          phone: form.phone || undefined,
+          email: form.email || undefined,
         },
         form.serviceIds,
         form.workingHours
@@ -133,6 +140,8 @@ const AppProfessionals = () => {
       name: "",
       specialty: "",
       photo_url: "",
+      phone: "",
+      email: "",
       serviceIds: [],
       workingHours: DAYS.map((d) => ({
         day_of_week: d.value,
@@ -152,46 +161,63 @@ const AppProfessionals = () => {
         </Button>
       }
     >
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {professionals.map((p) => (
           <div
             key={p.id}
-            className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-colors"
+            className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-200"
           >
-            <div className="flex items-start gap-4">
-              <Avatar>
-                {p.photo_url ? (
-                  <img src={p.photo_url} alt={p.name} />
-                ) : (
-                  <AvatarFallback>{p.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                )}
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold">{p.name}</h3>
-                <p className="text-sm text-muted-foreground">{p.specialty || "—"}</p>
-                <div className="flex items-center gap-2 mt-3">
-                  <Switch
-                    checked={p.is_active}
-                    onCheckedChange={(checked) =>
-                      toggleActiveMutation.mutate({ id: p.id, is_active: !!checked })
-                    }
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {p.is_active ? "Ativo" : "Inativo"}
-                  </span>
+            <div className="p-5">
+              <div className="flex items-start gap-4">
+                <Avatar className="h-14 w-14 shrink-0">
+                  {p.photo_url ? (
+                    <img src={p.photo_url} alt={p.name} className="object-cover" />
+                  ) : (
+                    <AvatarFallback className="text-lg">{p.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  )}
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base truncate">{p.name}</h3>
+                  <p className="text-sm text-muted-foreground truncate">{p.specialty || "—"}</p>
+                  {p.phone && (
+                    <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
+                      <Phone size={14} className="shrink-0" />
+                      <span className="truncate">{p.phone}</span>
+                    </div>
+                  )}
+                  {p.email && (
+                    <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
+                      <Mail size={14} className="shrink-0" />
+                      <span className="truncate">{p.email}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mt-3">
+                    <Switch
+                      checked={p.is_active}
+                      onCheckedChange={(checked) =>
+                        toggleActiveMutation.mutate({ id: p.id, is_active: !!checked })
+                      }
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {p.is_active ? "Ativo" : "Inativo"}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-2 p-4 pt-0">
               <Button
                 variant="outline"
                 size="sm"
+                className="flex-1"
                 onClick={() => {
                   setEditing(p);
                   setForm({
                     name: p.name,
                     specialty: p.specialty ?? "",
                     photo_url: p.photo_url ?? "",
+                    phone: p.phone ?? "",
+                    email: p.email ?? "",
                     serviceIds:
                       p.professional_services?.map((s) => s.service_id) ?? [],
                     workingHours: DAYS.map((d) => ({
@@ -208,7 +234,7 @@ const AppProfessionals = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-destructive"
+                className="text-destructive shrink-0"
                 onClick={() => setDeleting(p)}
               >
                 <Trash2 size={14} className="mr-1" />
@@ -239,6 +265,23 @@ const AppProfessionals = () => {
                 value={form.specialty}
                 onChange={(e) => setForm((f) => ({ ...f, specialty: e.target.value }))}
                 placeholder="Ex: Barbeiro"
+              />
+            </div>
+            <div>
+              <Label>Telefone</Label>
+              <Input
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+            <div>
+              <Label>E-mail</Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="email@exemplo.com"
               />
             </div>
             <div>
@@ -303,6 +346,23 @@ const AppProfessionals = () => {
               <Input
                 value={form.specialty}
                 onChange={(e) => setForm((f) => ({ ...f, specialty: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Telefone</Label>
+              <Input
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+            <div>
+              <Label>E-mail</Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="email@exemplo.com"
               />
             </div>
             <div>

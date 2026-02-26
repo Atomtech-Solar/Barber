@@ -1,39 +1,346 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PageContainer from "@/components/shared/PageContainer";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { mockProducts } from "@/data/mockData";
-import { Plus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, MoreHorizontal, Pencil, History, Package } from "lucide-react";
+import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/hooks/useAuth";
+import { stockService, getUnitLabel } from "@/services/stock.service";
+import type { StockProductWithQuantity } from "@/types/database.types";
+import { StockProductFormModal } from "@/components/app/StockProductFormModal";
+import { StockMovementFormModal } from "@/components/app/StockMovementFormModal";
+import { StockProductHistoryModal } from "@/components/app/StockProductHistoryModal";
+import { toast } from "sonner";
+import type { StockUnit } from "@/types/database.types";
 
-const AppStock = () => (
-  <PageContainer title="Estoque" description="Controle seus produtos" actions={<Button><Plus size={16} className="mr-2" /> Novo Produto</Button>}>
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Produto</TableHead>
-            <TableHead>Estoque</TableHead>
-            <TableHead>Preço</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {mockProducts.map((p) => (
-            <TableRow key={p.id}>
-              <TableCell className="font-medium">{p.name}</TableCell>
-              <TableCell>{p.stock} un</TableCell>
-              <TableCell>R$ {p.price}</TableCell>
-              <TableCell>
-                <Badge variant={p.stock <= p.minStock ? "destructive" : "default"}>
-                  {p.stock <= p.minStock ? "Baixo" : "OK"}
-                </Badge>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  </PageContainer>
-);
+function getStockStatus(
+  current: number,
+  minimum: number
+): "normal" | "low" | "critical" {
+  if (current <= 0) return "critical";
+  if (current <= minimum) return "low";
+  return "normal";
+}
+
+function StockStatusBadge({ current, minimum }: { current: number; minimum: number }) {
+  const status = getStockStatus(current, minimum);
+  if (status === "normal")
+    return (
+      <span className="inline-flex items-center gap-1 text-xs">
+        <span className="w-2 h-2 rounded-full bg-green-500" />
+        Normal
+      </span>
+    );
+  if (status === "low")
+    return (
+      <Badge variant="secondary" className="bg-amber-500/20 text-amber-700 dark:text-amber-400">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1" />
+        Baixo
+      </Badge>
+    );
+  return (
+    <Badge variant="destructive" className="bg-red-500/20 text-red-700 dark:text-red-400">
+      <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1" />
+      Crítico
+    </Badge>
+  );
+}
+
+const AppStock = () => {
+  const queryClient = useQueryClient();
+  const { currentCompany } = useTenant();
+  const { user } = useAuth();
+  const companyId = currentCompany?.id ?? "";
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [movementModalOpen, setMovementModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<StockProductWithQuantity | null>(null);
+  const [historyProduct, setHistoryProduct] = useState<StockProductWithQuantity | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
+
+  const { data: productsData, isLoading } = useQuery({
+    queryKey: ["stock-products", companyId, showInactive],
+    queryFn: () => stockService.listProducts(companyId, showInactive),
+    enabled: !!companyId,
+  });
+
+  const products = productsData?.data ?? [];
+  const lowStockCount = products.filter(
+    (p) => getStockStatus(p.current_quantity, p.minimum_stock) !== "normal"
+  ).length;
+
+  const createProductMutation = useMutation({
+    mutationFn: (values: {
+      name: string;
+      category: string;
+      brand: string;
+      description: string;
+      unit: StockUnit;
+      minimum_stock: string;
+      image_url: string;
+      cost_price: string;
+      sale_price: string;
+      is_active: boolean;
+    }) =>
+      stockService.createProduct(companyId, {
+        name: values.name,
+        category: values.category || undefined,
+        brand: values.brand || undefined,
+        description: values.description || undefined,
+        unit: values.unit,
+        minimum_stock: parseInt(values.minimum_stock, 10),
+        image_url: values.image_url || undefined,
+        cost_price: values.cost_price ? parseFloat(values.cost_price) : undefined,
+        sale_price: values.sale_price ? parseFloat(values.sale_price) : undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stock-products"] });
+      setProductModalOpen(false);
+      toast.success("Produto cadastrado!");
+    },
+    onError: (e: Error) => toast.error(e.message || "Erro ao cadastrar."),
+  });
+
+  const updateProductMutation = useMutation({
+    mutationFn: ({
+      id,
+      values,
+    }: {
+      id: string;
+      values: {
+        name: string;
+        category: string;
+        brand: string;
+        description: string;
+        unit: StockUnit;
+        minimum_stock: string;
+        image_url: string;
+        cost_price: string;
+        sale_price: string;
+        is_active: boolean;
+      };
+    }) =>
+      stockService.updateProduct(companyId, id, {
+        name: values.name,
+        category: values.category || undefined,
+        brand: values.brand || undefined,
+        description: values.description || undefined,
+        unit: values.unit,
+        minimum_stock: parseInt(values.minimum_stock, 10),
+        image_url: values.image_url || undefined,
+        cost_price: values.cost_price ? parseFloat(values.cost_price) : undefined,
+        sale_price: values.sale_price ? parseFloat(values.sale_price) : undefined,
+        is_active: values.is_active,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stock-products"] });
+      setEditingProduct(null);
+      toast.success("Produto atualizado!");
+    },
+    onError: (e: Error) => toast.error(e.message || "Erro ao atualizar."),
+  });
+
+  const handleMovementSaved = () => {
+    queryClient.invalidateQueries({ queryKey: ["stock-products"] });
+    toast.success("Movimentação registrada!");
+  };
+
+  return (
+    <>
+      <PageContainer
+        title="Estoque"
+        description={
+          <span className="block">
+            Controle de produtos e movimentações
+            {lowStockCount > 0 && (
+              <Badge variant="secondary" className="ml-2 bg-amber-500/20 text-amber-700">
+                {lowStockCount} com estoque baixo
+              </Badge>
+            )}
+          </span>
+        }
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setMovementModalOpen(true)}>
+              <Plus size={16} className="mr-2" />
+              Nova Movimentação
+            </Button>
+            <Button onClick={() => setProductModalOpen(true)}>
+              <Plus size={16} className="mr-2" />
+              Novo Produto
+            </Button>
+          </div>
+        }
+      >
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="p-3 border-b border-border flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+              />
+              Mostrar inativos
+            </label>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-14">Imagem</TableHead>
+                <TableHead>Produto</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Estoque atual</TableHead>
+                <TableHead>Mínimo</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Preços</TableHead>
+                <TableHead className="w-[50px]" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                    Carregando...
+                  </TableCell>
+                </TableRow>
+              ) : products.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                    Nenhum produto cadastrado. Clique em &quot;Novo Produto&quot; para começar.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                products.map((p) => (
+                  <TableRow
+                    key={p.id}
+                    className={`hover:bg-secondary/50 cursor-pointer ${
+                      !p.is_active ? "opacity-60" : ""
+                    }`}
+                    onClick={() => p.is_active && setHistoryProduct(p)}
+                  >
+                    <TableCell>
+                      {p.image_url ? (
+                        <img
+                          src={p.image_url}
+                          alt=""
+                          className="h-10 w-10 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
+                          <Package className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <p className="font-medium">{p.name}</p>
+                      {p.brand && (
+                        <p className="text-xs text-muted-foreground">{p.brand}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {p.category ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      {p.current_quantity} {getUnitLabel(p.unit)}
+                    </TableCell>
+                    <TableCell>
+                      {p.minimum_stock} {getUnitLabel(p.unit)}
+                    </TableCell>
+                    <TableCell>
+                      <StockStatusBadge
+                        current={p.current_quantity}
+                        minimum={p.minimum_stock}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {p.cost_price != null && (
+                        <span className="text-muted-foreground">
+                          C: R$ {Number(p.cost_price).toFixed(2)}
+                        </span>
+                      )}
+                      {p.cost_price != null && p.sale_price != null && " · "}
+                      {p.sale_price != null && (
+                        <span>V: R$ {Number(p.sale_price).toFixed(2)}</span>
+                      )}
+                      {p.cost_price == null && p.sale_price == null && "—"}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal size={16} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setHistoryProduct(p)}>
+                            <History size={14} className="mr-2" />
+                            Histórico
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditingProduct(p)}>
+                            <Pencil size={14} className="mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </PageContainer>
+
+      <StockProductFormModal
+        open={productModalOpen}
+        onOpenChange={setProductModalOpen}
+        mode="create"
+        onSubmit={(v) => createProductMutation.mutateAsync(v)}
+        isLoading={createProductMutation.isPending}
+      />
+
+      <StockProductFormModal
+        open={!!editingProduct}
+        onOpenChange={(o) => !o && setEditingProduct(null)}
+        mode="edit"
+        product={editingProduct}
+        onSubmit={(v) =>
+          editingProduct &&
+          updateProductMutation.mutateAsync({ id: editingProduct.id, values: v })
+        }
+        isLoading={updateProductMutation.isPending}
+      />
+
+      <StockMovementFormModal
+        open={movementModalOpen}
+        onOpenChange={setMovementModalOpen}
+        companyId={companyId}
+        createdBy={user?.id ?? ""}
+        onSubmit={handleMovementSaved}
+      />
+
+      <StockProductHistoryModal
+        open={!!historyProduct}
+        onOpenChange={(o) => !o && setHistoryProduct(null)}
+        companyId={companyId}
+        product={historyProduct}
+      />
+    </>
+  );
+};
 
 export default AppStock;
