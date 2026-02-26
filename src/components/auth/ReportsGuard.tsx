@@ -1,14 +1,14 @@
 import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useCompanyPageAccess } from "@/hooks/useCompanyPageAccess";
 
 interface ReportsGuardProps {
   children: ReactNode;
 }
 
-/** Apenas company_admin (admin da mini empresa) pode acessar Relatórios */
+/** Controle de acesso a Relatórios via allowed_pages em company_members */
 export function ReportsGuard({ children }: ReportsGuardProps) {
-  const { profile, isLoading } = useAuth();
+  const { hasAccessToPage, isLoading } = useCompanyPageAccess();
 
   if (isLoading) {
     return (
@@ -18,7 +18,7 @@ export function ReportsGuard({ children }: ReportsGuardProps) {
     );
   }
 
-  if (profile?.role !== "company_admin" && profile?.role !== "owner") {
+  if (!hasAccessToPage("reports")) {
     return <Navigate to="/app" replace />;
   }
 

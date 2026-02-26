@@ -20,6 +20,7 @@ const DashboardLayout = lazy(() => import("./components/layouts/DashboardLayout"
 import SiteLayout from "./components/layouts/SiteLayout";
 import ClientLayout from "./components/layouts/ClientLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminCompanyTeam from "./pages/admin/AdminCompanyTeam";
 import AppDashboard from "./pages/app/AppDashboard";
 import AppAgenda from "./pages/app/AppAgenda";
 import AppClients from "./pages/app/AppClients";
@@ -54,9 +55,11 @@ const App = () => (
             <Route path="/owner" element={<AdminGuard><Suspense fallback={<div className="min-h-screen flex items-center justify-center">Carregando...</div>}><AdminLayout /></Suspense></AdminGuard>}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="companies/:companyId/team" element={<AdminCompanyTeam />} />
             </Route>
             <Route path="/admin" element={<AdminGuard><Suspense fallback={<div className="min-h-screen flex items-center justify-center">Carregando...</div>}><AdminLayout /></Suspense></AdminGuard>}>
               <Route index element={<AdminDashboard />} />
+              <Route path="companies/:companyId/team" element={<AdminCompanyTeam />} />
             </Route>
             <Route path="/app" element={<AppGuard><Suspense fallback={<div className="min-h-screen flex items-center justify-center">Carregando...</div>}><DashboardLayout /></Suspense></AppGuard>}>
               <Route index element={<AppDashboard />} />

@@ -27,6 +27,9 @@ export interface UpdateCompanyParams {
   owner_phone?: string;
   opening_time?: string | null;
   closing_time?: string | null;
+  customization_enabled?: boolean;
+  dashboard_theme?: "dark" | "light" | null;
+  dashboard_primary_color?: string | null;
   status?: "active" | "blocked";
   /** Data em que o plano foi iniciado (admin) */
   active_from?: string | null;

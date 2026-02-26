@@ -1,26 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { RouteErrorBoundary } from "@/components/shared/RouteErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
+import { useCompanyPageAccess } from "@/hooks/useCompanyPageAccess";
+import { applyCompanyTheme } from "@/lib/companyTheme";
 import {
   LayoutDashboard, Calendar, Users, Scissors, UserCheck, DollarSign,
-  Package, BarChart3, Settings, Bell, Plus, ChevronLeft,
+  Package, BarChart3, Settings, Plus, ChevronLeft,
   ChevronRight, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/app" },
-  { label: "Agenda", icon: Calendar, path: "/app/agenda" },
-  { label: "Clientes", icon: Users, path: "/app/clients" },
-  { label: "Serviços", icon: Scissors, path: "/app/services" },
-  { label: "Profissionais", icon: UserCheck, path: "/app/professionals" },
-  { label: "Financeiro", icon: DollarSign, path: "/app/financial" },
-  { label: "Estoque", icon: Package, path: "/app/stock" },
-  { label: "Relatórios", icon: BarChart3, path: "/app/reports" },
-  { label: "Configurações", icon: Settings, path: "/app/settings" },
+  { label: "Dashboard", icon: LayoutDashboard, path: "/app", accessKey: "dashboard" },
+  { label: "Agenda", icon: Calendar, path: "/app/agenda", accessKey: "agenda" },
+  { label: "Clientes", icon: Users, path: "/app/clients", accessKey: "clients" },
+  { label: "Serviços", icon: Scissors, path: "/app/services", accessKey: "services" },
+  { label: "Profissionais", icon: UserCheck, path: "/app/professionals", accessKey: "professionals" },
+  { label: "Financeiro", icon: DollarSign, path: "/app/financial", accessKey: "financial" },
+  { label: "Estoque", icon: Package, path: "/app/stock", accessKey: "stock" },
+  { label: "Relatórios", icon: BarChart3, path: "/app/reports", accessKey: "reports" },
+  { label: "Configurações", icon: Settings, path: "/app/settings", accessKey: "settings" },
 ];
 
 const DashboardLayout = () => {
@@ -28,6 +30,12 @@ const DashboardLayout = () => {
   const location = useLocation();
   const { currentCompany } = useTenant();
   const { profile, user, signOut } = useAuth();
+  const { hasAccessToPage, hasAccessToPath, isLoading: accessLoading } = useCompanyPageAccess();
+  const canAccessCurrentPath = hasAccessToPath(location.pathname);
+
+  useEffect(() => {
+    applyCompanyTheme(currentCompany);
+  }, [currentCompany]);
 
   return (
     <div className="flex h-screen bg-background">
@@ -52,7 +60,7 @@ const DashboardLayout = () => {
         <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
           {navItems
             .filter((item) => {
-              if (item.path === "/app/reports" && profile?.role === "employee") return false;
+              if (!hasAccessToPage(item.accessKey)) return false;
               return true;
             })
             .map((item) => {
@@ -89,10 +97,6 @@ const DashboardLayout = () => {
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {profile?.full_name ?? user?.email ?? "Usuário"}
             </span>
-            <Button variant="outline" size="sm">
-              <Bell size={16} className="mr-2" />
-              <span className="hidden sm:inline">Notificações</span>
-            </Button>
             <Link to="/app/agenda">
               <Button size="sm">
                 <Plus size={16} className="mr-2" />
@@ -107,9 +111,21 @@ const DashboardLayout = () => {
         </header>
 
         <main className="flex-1 overflow-auto p-6">
-          <RouteErrorBoundary>
-            <Outlet />
-          </RouteErrorBoundary>
+          {accessLoading ? (
+            <div className="min-h-[200px] flex items-center justify-center">
+              <div className="animate-pulse text-muted-foreground">Carregando acessos...</div>
+            </div>
+          ) : canAccessCurrentPath ? (
+            <RouteErrorBoundary>
+              <Outlet />
+            </RouteErrorBoundary>
+          ) : (
+            <div className="min-h-[200px] flex items-center justify-center">
+              <p className="text-muted-foreground text-center">
+                Você não possui acesso a esta página.
+              </p>
+            </div>
+          )}
         </main>
       </div>
     </div>

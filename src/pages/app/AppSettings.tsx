@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useTenant } from "@/contexts/TenantContext";
 import { companyService } from "@/services/company.service";
+import { applyCompanyTheme } from "@/lib/companyTheme";
 
 const DEFAULT_OPENING_TIME = "09:00";
 const DEFAULT_CLOSING_TIME = "19:00";
+const DEFAULT_PRIMARY_COLOR = "#fbbf24";
 
 function isThirtyMinuteTime(time: string) {
   const minutes = Number(time.split(":")[1] ?? "0");
@@ -26,10 +28,16 @@ const AppSettings = () => {
   const { currentCompany, setCurrentCompany } = useTenant();
   const [openingTime, setOpeningTime] = useState(DEFAULT_OPENING_TIME);
   const [closingTime, setClosingTime] = useState(DEFAULT_CLOSING_TIME);
+  const [customizationEnabled, setCustomizationEnabled] = useState(false);
+  const [dashboardTheme, setDashboardTheme] = useState<"dark" | "light">("dark");
+  const [dashboardPrimaryColor, setDashboardPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
 
   useEffect(() => {
     setOpeningTime((currentCompany?.opening_time ?? DEFAULT_OPENING_TIME).slice(0, 5));
     setClosingTime((currentCompany?.closing_time ?? DEFAULT_CLOSING_TIME).slice(0, 5));
+    setCustomizationEnabled(currentCompany?.customization_enabled ?? false);
+    setDashboardTheme(currentCompany?.dashboard_theme ?? "dark");
+    setDashboardPrimaryColor(currentCompany?.dashboard_primary_color ?? DEFAULT_PRIMARY_COLOR);
   }, [currentCompany]);
 
   const saveBusinessHoursMutation = useMutation({
@@ -56,6 +64,30 @@ const AppSettings = () => {
     },
     onError: (error) => {
       const fallback = "Não foi possível salvar o horário de funcionamento.";
+      const message = error instanceof Error ? error.message : fallback;
+      toast.error(message);
+    },
+  });
+
+  const saveCustomizationMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentCompany) return;
+      const { data, error } = await companyService.update(currentCompany.id, {
+        customization_enabled: customizationEnabled,
+        dashboard_theme: dashboardTheme,
+        dashboard_primary_color: dashboardPrimaryColor,
+      });
+      if (error) throw error;
+      if (data) {
+        setCurrentCompany(data);
+        applyCompanyTheme(data);
+      }
+    },
+    onSuccess: () => {
+      toast.success("Customização da dashboard atualizada.");
+    },
+    onError: (error) => {
+      const fallback = "Não foi possível salvar a customização.";
       const message = error instanceof Error ? error.message : fallback;
       toast.error(message);
     },
@@ -132,14 +164,60 @@ const AppSettings = () => {
           </Button>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-6">
+        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold">Ativar Customização</h3>
-              <p className="text-sm text-muted-foreground">Permite personalizar cores e layout da landing page</p>
+              <p className="text-sm text-muted-foreground">
+                Permite personalizar a cor principal e o tema da dashboard da empresa
+              </p>
             </div>
-            <Switch />
+            <Switch
+              checked={customizationEnabled}
+              onCheckedChange={(checked) => setCustomizationEnabled(Boolean(checked))}
+            />
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Cor principal</Label>
+              <Input
+                type="color"
+                value={dashboardPrimaryColor}
+                disabled={!customizationEnabled}
+                onChange={(e) => setDashboardPrimaryColor(e.target.value)}
+                className="mt-1 h-11 p-1"
+              />
+            </div>
+            <div>
+              <Label>Tema da dashboard</Label>
+              <div className="mt-1 flex gap-2">
+                <Button
+                  type="button"
+                  variant={dashboardTheme === "light" ? "default" : "outline"}
+                  disabled={!customizationEnabled}
+                  onClick={() => setDashboardTheme("light")}
+                >
+                  Light
+                </Button>
+                <Button
+                  type="button"
+                  variant={dashboardTheme === "dark" ? "default" : "outline"}
+                  disabled={!customizationEnabled}
+                  onClick={() => setDashboardTheme("dark")}
+                >
+                  Dark
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => saveCustomizationMutation.mutate()}
+            disabled={!currentCompany || saveCustomizationMutation.isPending}
+          >
+            {saveCustomizationMutation.isPending ? "Salvando..." : "Salvar customização"}
+          </Button>
         </div>
       </div>
     </PageContainer>

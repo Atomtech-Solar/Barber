@@ -16,6 +16,9 @@ export interface Company {
   phone: string | null;
   opening_time: string | null;
   closing_time: string | null;
+  customization_enabled: boolean;
+  dashboard_theme: "dark" | "light" | null;
+  dashboard_primary_color: string | null;
   status: 'active' | 'blocked';
   /** Data em que o plano foi iniciado (admin) */
   active_from: string | null;
@@ -76,6 +79,18 @@ export interface CompanyMember {
   company_id: string;
   role: CompanyMemberRole;
   created_at: string;
+}
+
+export interface CompanyMemberWithProfile {
+  user_id: string;
+  company_id: string;
+  role: CompanyMemberRole;
+  linked_at: string;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  allowed_pages: string[] | null;
 }
 
 export interface WorkingHour {

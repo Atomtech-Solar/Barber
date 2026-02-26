@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import PageContainer from "@/components/shared/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Lock, Unlock, Pencil, Trash2 } from "lucide-react";
+import { Plus, Eye, Users, Lock, Unlock, Pencil, Trash2 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/hooks/useAuth";
 import { companyService } from "@/services/company.service";
@@ -202,6 +202,13 @@ const AdminDashboard = () => {
                   onClick={() => handleAcessar(company)}
                 >
                   <Eye size={14} className="mr-1" /> Acessar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/owner/companies/${company.id}/team`)}
+                >
+                  <Users size={14} className="mr-1" /> Equipe
                 </Button>
                 <Button
                   variant="ghost"

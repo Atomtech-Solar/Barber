@@ -23,7 +23,10 @@ const AdminLayout = () => {
             to="/owner/dashboard"
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-              location.pathname === "/admin" || location.pathname === "/owner/dashboard"
+              location.pathname === "/admin" ||
+                location.pathname === "/owner/dashboard" ||
+                location.pathname.startsWith("/owner/companies/") ||
+                location.pathname.startsWith("/admin/companies/")
                 ? "bg-primary/10 text-primary font-medium"
                 : "text-muted-foreground hover:text-foreground hover:bg-secondary"
             )}
