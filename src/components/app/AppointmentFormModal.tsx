@@ -426,6 +426,7 @@ export function AppointmentFormModal({
               <Input
                 id="start_time"
                 type="time"
+                step={1800}
                 value={values.start_time}
                 onChange={(e) =>
                   setValues((v) => ({ ...v, start_time: e.target.value }))

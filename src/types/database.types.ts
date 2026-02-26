@@ -14,6 +14,8 @@ export interface Company {
   owner_phone: string | null;
   slogan: string | null;
   phone: string | null;
+  opening_time: string | null;
+  closing_time: string | null;
   status: 'active' | 'blocked';
   /** Data em que o plano foi iniciado (admin) */
   active_from: string | null;

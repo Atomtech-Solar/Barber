@@ -25,6 +25,8 @@ export interface UpdateCompanyParams {
   email?: string;
   owner_name?: string;
   owner_phone?: string;
+  opening_time?: string | null;
+  closing_time?: string | null;
   status?: "active" | "blocked";
   /** Data em que o plano foi iniciado (admin) */
   active_from?: string | null;

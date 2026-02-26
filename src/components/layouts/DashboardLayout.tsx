@@ -5,7 +5,7 @@ import { RouteErrorBoundary } from "@/components/shared/RouteErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
 import {
   LayoutDashboard, Calendar, Users, Scissors, UserCheck, DollarSign,
-  Package, ShoppingCart, BarChart3, Settings, Bell, Plus, ChevronLeft,
+  Package, BarChart3, Settings, Bell, Plus, ChevronLeft,
   ChevronRight, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ const navItems = [
   { label: "Profissionais", icon: UserCheck, path: "/app/professionals" },
   { label: "Financeiro", icon: DollarSign, path: "/app/financial" },
   { label: "Estoque", icon: Package, path: "/app/stock" },
-  { label: "Vendas (PDV)", icon: ShoppingCart, path: "/app/sales" },
   { label: "Relatórios", icon: BarChart3, path: "/app/reports" },
   { label: "Configurações", icon: Settings, path: "/app/settings" },
 ];

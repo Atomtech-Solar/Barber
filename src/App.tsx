@@ -27,7 +27,6 @@ import AppServices from "./pages/app/AppServices";
 import AppProfessionals from "./pages/app/AppProfessionals";
 import AppFinancial from "./pages/app/AppFinancial";
 import AppStock from "./pages/app/AppStock";
-import AppSales from "./pages/app/AppSales";
 import AppReports from "./pages/app/AppReports";
 import { ReportsGuard } from "./components/auth/ReportsGuard";
 import AppSettings from "./pages/app/AppSettings";
@@ -67,7 +66,6 @@ const App = () => (
               <Route path="professionals" element={<AppProfessionals />} />
               <Route path="financial" element={<AppFinancial />} />
               <Route path="stock" element={<AppStock />} />
-              <Route path="sales" element={<AppSales />} />
               <Route path="reports" element={<ReportsGuard><AppReports /></ReportsGuard>} />
               <Route path="settings" element={<AppSettings />} />
             </Route>

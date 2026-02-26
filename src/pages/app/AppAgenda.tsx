@@ -16,22 +16,23 @@ import type { Appointment, Professional, Service } from "@/types/database.types"
 import { AppointmentFormModal, type FormValues } from "@/components/app/AppointmentFormModal";
 
 const SLOT_MINUTES = 30;
-const START_HOUR = 8;
-const END_HOUR = 18;
-
-const SLOTS = (() => {
-  const arr: string[] = [];
-  for (let h = START_HOUR; h < END_HOUR; h++) {
-    for (let m = 0; m < 60; m += SLOT_MINUTES) {
-      arr.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
-    }
-  }
-  return arr;
-})();
+const DEFAULT_OPENING_TIME = "09:00";
+const DEFAULT_CLOSING_TIME = "19:00";
 
 function parseTime(t: string): Date {
   const [h, m] = (typeof t === "string" ? t.slice(0, 5) : "00:00").split(":").map(Number);
   return setMinutes(setHours(new Date(2000, 0, 1), h), m);
+}
+
+function timeToMinutes(t: string): number {
+  const [h, m] = (typeof t === "string" ? t.slice(0, 5) : "00:00").split(":").map(Number);
+  return h * 60 + m;
+}
+
+function minutesToTime(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
 function timeInRange(slotTime: string, start: string, durationMin: number): boolean {
@@ -59,6 +60,17 @@ const AppAgenda = () => {
   const { currentCompany } = useTenant();
   const { user } = useAuth();
   const companyId = currentCompany?.id ?? "";
+  const openingTime = (currentCompany?.opening_time ?? DEFAULT_OPENING_TIME).slice(0, 5);
+  const closingTime = (currentCompany?.closing_time ?? DEFAULT_CLOSING_TIME).slice(0, 5);
+  const openingMinutes = timeToMinutes(openingTime);
+  const closingMinutes = timeToMinutes(closingTime);
+  const SLOTS =
+    closingMinutes > openingMinutes
+      ? Array.from(
+          { length: Math.floor((closingMinutes - openingMinutes) / SLOT_MINUTES) },
+          (_, idx) => minutesToTime(openingMinutes + idx * SLOT_MINUTES)
+        )
+      : [];
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
@@ -257,7 +269,7 @@ const AppAgenda = () => {
   const now = new Date();
   const todayStr = format(now, "yyyy-MM-dd");
   const minutes = now.getHours() * 60 + now.getMinutes();
-  const slotIndex = Math.floor((minutes - START_HOUR * 60) / SLOT_MINUTES);
+  const slotIndex = Math.floor((minutes - openingMinutes) / SLOT_MINUTES);
   const currentSlot =
     slotIndex >= 0 && slotIndex < SLOTS.length ? SLOTS[slotIndex] : "";
 

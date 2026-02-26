@@ -50,6 +50,23 @@ export interface AvailableSlot {
   endTime: string;
 }
 
+const SLOT_INTERVAL_MINUTES = 30;
+const DEFAULT_OPENING_TIME = "09:00";
+const DEFAULT_CLOSING_TIME = "19:00";
+
+function normalizeTime(value: string | null | undefined, fallback = "00:00") {
+  return typeof value === "string" ? value.slice(0, 5) : fallback;
+}
+
+function timeToMinutes(value: string) {
+  const [h, m] = normalizeTime(value, "00:00").split(":").map(Number);
+  return h * 60 + m;
+}
+
+function ceilToSlotBoundary(minutes: number, step: number) {
+  return Math.ceil(minutes / step) * step;
+}
+
 export const bookingService = {
   async listByCompany(companyId: string, startDate?: string, endDate?: string) {
     let query = supabase
@@ -97,6 +114,23 @@ export const bookingService = {
     const totalDuration = serviceIds.reduce((acc, sid) => acc + (serviceDurations[sid] ?? 0), 0);
     if (totalDuration <= 0) return { data: [], error: null };
 
+    const { data: companyData, error: companyError } = await supabase
+      .from("companies")
+      .select("opening_time, closing_time")
+      .eq("id", companyId)
+      .single();
+
+    if (companyError) return { data: [], error: companyError };
+
+    const companyOpen = timeToMinutes(
+      normalizeTime(companyData?.opening_time, DEFAULT_OPENING_TIME)
+    );
+    const companyClose = timeToMinutes(
+      normalizeTime(companyData?.closing_time, DEFAULT_CLOSING_TIME)
+    );
+
+    if (companyClose <= companyOpen) return { data: [], error: null };
+
     const { data: wh, error: whError } = await supabase
       .from("working_hours")
       .select("*")
@@ -111,20 +145,33 @@ export const bookingService = {
     const slots: AvailableSlot[] = [];
     const dateStr = date;
 
-    const norm = (t: string) => (typeof t === "string" ? t.slice(0, 5) : "09:00");
-
     for (const w of wh) {
-      const [sh, sm] = norm(w.start_time).split(":").map(Number);
-      const [eh, em] = norm(w.end_time).split(":").map(Number);
-      let current = setMinutes(setHours(new Date(dateStr), sh), sm);
-      const end = setMinutes(setHours(new Date(dateStr), eh), em);
+      const profStart = timeToMinutes(normalizeTime(w.start_time, DEFAULT_OPENING_TIME));
+      const profEnd = timeToMinutes(normalizeTime(w.end_time, DEFAULT_CLOSING_TIME));
+
+      const effectiveStart = ceilToSlotBoundary(
+        Math.max(profStart, companyOpen),
+        SLOT_INTERVAL_MINUTES
+      );
+      const effectiveEnd = Math.min(profEnd, companyClose);
+
+      if (effectiveEnd <= effectiveStart) continue;
+
+      let current = setMinutes(
+        setHours(new Date(dateStr), Math.floor(effectiveStart / 60)),
+        effectiveStart % 60
+      );
+      const end = setMinutes(
+        setHours(new Date(dateStr), Math.floor(effectiveEnd / 60)),
+        effectiveEnd % 60
+      );
 
       while (addMinutes(current, totalDuration) <= end) {
         const startTime = format(current, "HH:mm");
         const endTime = format(addMinutes(current, totalDuration), "HH:mm");
 
         const overlaps = (existing ?? []).some((apt) => {
-          const aptStart = parse(norm(apt.start_time), "HH:mm", new Date());
+          const aptStart = parse(normalizeTime(apt.start_time), "HH:mm", new Date());
           const aptEnd = addMinutes(aptStart, apt.duration_minutes);
           const slotStart = parse(startTime, "HH:mm", new Date());
           const slotEnd = parse(endTime, "HH:mm", new Date());
@@ -135,11 +182,16 @@ export const bookingService = {
           slots.push({ startTime, endTime });
         }
 
-        current = addMinutes(current, 30);
+        current = addMinutes(current, SLOT_INTERVAL_MINUTES);
       }
     }
 
-    return { data: slots, error: null };
+    const ordered = slots.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+    const deduped = ordered.filter(
+      (slot, index, arr) => index === 0 || arr[index - 1].startTime !== slot.startTime
+    );
+
+    return { data: deduped, error: null };
   },
 
   async create(params: CreateAppointmentParams) {
