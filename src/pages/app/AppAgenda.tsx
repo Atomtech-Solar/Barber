@@ -139,6 +139,7 @@ const AppAgenda = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["financial"] });
       setNewSlot(null);
       toast.success("Agendamento criado!");
     },
@@ -178,10 +179,12 @@ const AppAgenda = () => {
         status: values.status,
         notes: values.notes || null,
         service_ids: values.service_ids ?? [],
+        updated_by: user?.id,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["financial"] });
       setEditingId(null);
       toast.success("Agendamento atualizado!");
     },
@@ -194,6 +197,7 @@ const AppAgenda = () => {
     mutationFn: (id: string) => bookingService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["financial"] });
       setEditingId(null);
       toast.success("Agendamento removido.");
     },

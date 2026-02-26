@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { addMinutes, parse, format, setHours, setMinutes } from "date-fns";
-import type { Appointment } from "@/types/database.types";
+import type { Appointment, Service } from "@/types/database.types";
+import { financialService } from "@/services/financial.service";
 
 export interface CreateAppointmentParams {
   company_id: string;
@@ -40,6 +41,8 @@ export interface UpdateAppointmentParams {
   status?: Appointment["status"];
   notes?: string | null;
   service_ids?: string[];
+  /** Usuário que alterou (para auditoria financeira) */
+  updated_by?: string;
 }
 
 export interface AvailableSlot {
@@ -248,10 +251,43 @@ export const bookingService = {
       );
     }
 
+    if (params.status === "completed") {
+      const serviceIds = params.service_ids ?? [];
+      const { data: servicesData } = serviceIds.length
+        ? await supabase.from("services").select("id, name, price").in("id", serviceIds)
+        : { data: [] as { id: string; name: string; price: number }[] };
+      const services = (servicesData ?? []) as (Service & { price?: number })[];
+      const { data: profData } = await supabase
+        .from("professionals")
+        .select("name")
+        .eq("id", params.professional_id)
+        .single();
+      const professionalName = (profData as { name?: string } | null)?.name ?? "—";
+      const clientName = params.client_name ?? "Cliente";
+      const serviceNames = services.map((s) => s.name).filter(Boolean).join(" + ") || "Atendimento";
+      const amount = services.reduce((sum, s) => sum + (Number(s.price) ?? 0), 0);
+      await financialService.createFromAppointment({
+        company_id: params.company_id,
+        appointment_id: (apt as Appointment).id,
+        service_name_snapshot: serviceNames,
+        professional_name_snapshot: professionalName,
+        client_name_snapshot: clientName,
+        amount,
+        created_by: params.created_by ?? "",
+      });
+    }
+
     return { data: apt as Appointment, error: null };
   },
 
   async update(id: string, params: UpdateAppointmentParams) {
+    const { data: oldApt, error: fetchErr } = await supabase
+      .from("appointments")
+      .select("status")
+      .eq("id", id)
+      .single();
+    const oldStatus = fetchErr ? null : (oldApt?.status as Appointment["status"] | null);
+
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
       ...(params.client_name !== undefined && { client_name: params.client_name }),
@@ -282,10 +318,50 @@ export const bookingService = {
       }
     }
 
+    const newStatus = (apt as Appointment).status;
+
+    if (params.status !== undefined && oldStatus !== newStatus) {
+      if (newStatus === "completed") {
+        const hasValid = await financialService.hasValidRecordForAppointment(id);
+        if (!hasValid) {
+          const fullApt = await this.getById(id);
+          if (fullApt.data) {
+            const aptData = fullApt.data as Appointment & { service_ids?: string[] };
+            const serviceIds = aptData.service_ids ?? [];
+            const { data: servicesData } = serviceIds.length
+              ? await supabase.from("services").select("id, name, price").in("id", serviceIds)
+              : { data: [] as { id: string; name: string; price: number }[] };
+            const services = (servicesData ?? []) as (Service & { price?: number })[];
+            const { data: profData } = await supabase
+              .from("professionals")
+              .select("name")
+              .eq("id", aptData.professional_id)
+              .single();
+            const professionalName = (profData as { name?: string } | null)?.name ?? "—";
+            const clientName = aptData.client_name ?? "Cliente";
+            const serviceNames = services.map((s) => s.name).filter(Boolean).join(" + ") || "Atendimento";
+            const amount = services.reduce((sum, s) => sum + (Number(s.price) ?? 0), 0);
+            await financialService.createFromAppointment({
+              company_id: aptData.company_id,
+              appointment_id: id,
+              service_name_snapshot: serviceNames,
+              professional_name_snapshot: professionalName,
+              client_name_snapshot: clientName,
+              amount,
+              created_by: params.updated_by ?? aptData.created_by ?? "",
+            });
+          }
+        }
+      } else if (oldStatus === "completed") {
+        await financialService.invalidateByAppointmentId(id);
+      }
+    }
+
     return { data: apt as Appointment, error: null };
   },
 
   async delete(id: string) {
+    await financialService.invalidateByAppointmentId(id);
     await supabase.from("appointment_services").delete().eq("appointment_id", id);
     const { error } = await supabase.from("appointments").delete().eq("id", id);
     return { error };

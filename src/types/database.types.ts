@@ -165,3 +165,22 @@ export interface StockMovement {
 export interface StockProductWithQuantity extends StockProduct {
   current_quantity: number;
 }
+
+export type FinancialType = 'income' | 'expense';
+export type FinancialSource = 'appointment' | 'manual' | 'product';
+
+export interface FinancialRecord {
+  id: string;
+  company_id: string;
+  appointment_id: string | null;
+  type: FinancialType;
+  source: FinancialSource;
+  description: string | null;
+  amount: number;
+  service_name_snapshot: string | null;
+  client_name_snapshot: string | null;
+  professional_name_snapshot: string | null;
+  created_by: string | null;
+  created_at: string;
+  is_valid: boolean;
+}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
+import { RouteErrorBoundary } from "@/components/shared/RouteErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
 import {
   LayoutDashboard, Calendar, Users, Scissors, UserCheck, DollarSign,
@@ -50,7 +51,12 @@ const DashboardLayout = () => {
         </div>
 
         <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
-          {navItems.map((item) => {
+          {navItems
+            .filter((item) => {
+              if (item.path === "/app/reports" && profile?.role === "employee") return false;
+              return true;
+            })
+            .map((item) => {
             const active =
               item.path === "/app"
                 ? location.pathname === "/app"
@@ -102,7 +108,9 @@ const DashboardLayout = () => {
         </header>
 
         <main className="flex-1 overflow-auto p-6">
-          <Outlet />
+          <RouteErrorBoundary>
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
       </div>
     </div>

@@ -29,6 +29,7 @@ import AppFinancial from "./pages/app/AppFinancial";
 import AppStock from "./pages/app/AppStock";
 import AppSales from "./pages/app/AppSales";
 import AppReports from "./pages/app/AppReports";
+import { ReportsGuard } from "./components/auth/ReportsGuard";
 import AppSettings from "./pages/app/AppSettings";
 import SiteLanding from "./pages/site/SiteLanding";
 import ClientHome from "./pages/client/ClientHome";
@@ -67,7 +68,7 @@ const App = () => (
               <Route path="financial" element={<AppFinancial />} />
               <Route path="stock" element={<AppStock />} />
               <Route path="sales" element={<AppSales />} />
-              <Route path="reports" element={<AppReports />} />
+              <Route path="reports" element={<ReportsGuard><AppReports /></ReportsGuard>} />
               <Route path="settings" element={<AppSettings />} />
             </Route>
             <Route path="/site/:slug" element={<SiteLayout />}>
