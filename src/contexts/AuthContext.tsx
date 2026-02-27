@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { authService } from "@/services/auth.service";
-import type { User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import type { Profile } from "@/types/database.types";
 
 interface AuthContextType {
@@ -29,6 +29,19 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+const AUTH_INIT_TIMEOUT_MS = 10000;
+const PROFILE_LOAD_TIMEOUT_MS = 8000;
+const LOADING_FAILSAFE_MS = 12000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  }) as Promise<T>;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -68,32 +81,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    const init = async () => {
-      // getUser() valida a sessão no servidor (getSession só usa cache local)
-      const { data: { user: authUser } } = await authService.getUser();
+    const syncFromSession = async (session: Session | null) => {
       if (!mounted) return;
-      setUser(authUser ?? null);
-      if (authUser?.id) {
-        await loadProfile(authUser.id);
+      setUser(session?.user ?? null);
+
+      if (session?.user?.id) {
+        try {
+          await withTimeout(
+            loadProfile(session.user.id),
+            PROFILE_LOAD_TIMEOUT_MS,
+            "Auth profile load"
+          );
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error("[AuthContext] Timeout/erro ao carregar perfil:", error);
+          }
+          if (!mounted) return;
+          setProfile(null);
+          setProfileLoadError(true);
+        }
+      } else {
+        setProfile(null);
+        setProfileLoadError(false);
       }
-      if (mounted) setIsLoading(false);
     };
 
-    init();
+    const init = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await withTimeout(
+          authService.getSession(),
+          AUTH_INIT_TIMEOUT_MS,
+          "Auth session init"
+        );
+        if (error && import.meta.env.DEV) {
+          console.error("[AuthContext] Erro ao obter sessão:", error);
+        }
+        if (!mounted) return;
+        await syncFromSession(data.session ?? null);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error("[AuthContext] Falha na inicialização da sessão:", error);
+        }
+        if (!mounted) return;
+        setUser(null);
+        setProfile(null);
+        setProfileLoadError(false);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    void init();
 
     const {
       data: { subscription },
     } = authService.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
       setIsLoading(true);
-      setUser(session?.user ?? null);
-      if (session?.user?.id) {
-        await loadProfile(session.user.id);
-      } else {
-        setProfile(null);
-        setProfileLoadError(false);
+      try {
+        await syncFromSession(session);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error("[AuthContext] Erro no onAuthStateChange:", error);
+        }
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-      if (mounted) setIsLoading(false);
     });
 
     return () => {
@@ -101,6 +155,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, [loadProfile]);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    const timeoutId = setTimeout(() => {
+      if (import.meta.env.DEV) {
+        console.warn("[AuthContext] Fail-safe: finalizando loading de autenticação.");
+      }
+      setIsLoading(false);
+    }, LOADING_FAILSAFE_MS);
+
+    return () => clearTimeout(timeoutId);
+  }, [isLoading]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await authService.signIn({ email, password });

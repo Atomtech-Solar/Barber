@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import type { Profile } from "@/types/database.types";
 
 // Segurança: validação real deve ocorrer na API
@@ -98,7 +99,7 @@ export const authService = {
     };
   },
 
-  onAuthStateChange(callback: (event: string, session: unknown) => void) {
+  onAuthStateChange(callback: (event: AuthChangeEvent, session: Session | null) => void) {
     return supabase.auth.onAuthStateChange(callback);
   },
 };
