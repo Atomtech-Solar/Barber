@@ -7,10 +7,12 @@ interface AppGuardProps {
 }
 
 export function AppGuard({ children }: AppGuardProps) {
-  const { isAuthenticated, isLoading: authLoading, profile } = useAuth();
+  const { initialized, isAuthenticated, profile } = useAuth();
   const { currentCompany, isLoading: tenantLoading } = useTenant();
 
-  if (authLoading || tenantLoading) {
+  if (!initialized) return null;
+
+  if (tenantLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Carregando...</div>

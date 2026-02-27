@@ -20,7 +20,7 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType | null>(null);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const { profile, isAuthenticated } = useAuth();
+  const { initialized, profile, isAuthenticated } = useAuth();
   const [currentCompany, setCurrentCompanyState] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -56,6 +56,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!initialized) {
+      setIsLoading(true);
+      return;
+    }
+
     if (!isAuthenticated) {
       const slug = sessionStorage.getItem("tenant_slug");
       if (slug) {
@@ -95,7 +100,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     };
 
     initTenant();
-  }, [isAuthenticated, profile?.role, profile?.company_id]);
+  }, [initialized, isAuthenticated, profile?.role, profile?.company_id]);
 
   return (
     <TenantContext.Provider

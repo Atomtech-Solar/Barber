@@ -13,12 +13,10 @@ const LoadingScreen = () => (
 );
 
 export function AdminGuard({ children }: AdminGuardProps) {
-  const { isAuthenticated, isLoading, profile, profileLoadError, refreshProfile, signOut } = useAuth();
+  const { initialized, isAuthenticated, profile, profileLoadError, refreshProfile, signOut } = useAuth();
 
   // 1. Aguarda conclusão da checagem de auth (evita redirect prematuro)
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
+  if (!initialized) return null;
 
   if (!isAuthenticated) {
     return <Navigate to="/auth/login?returnTo=%2Fowner%2Fdashboard&loginOnly=1" replace />;

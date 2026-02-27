@@ -11,16 +11,10 @@ const getDashboardByRole = (role: string) => {
 };
 
 const Index = () => {
-  const { isAuthenticated, isLoading, profile } = useAuth();
+  const { initialized, isAuthenticated, profile } = useAuth();
 
   // Aguarda auth antes de decidir redirect (evita flash da tela de escolha)
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Carregando...</div>
-      </div>
-    );
-  }
+  if (!initialized) return null;
 
   // Redireciona usuário autenticado para o painel correto
   if (isAuthenticated && profile?.role) {

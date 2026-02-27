@@ -11,8 +11,11 @@ import type { Session, User } from "@supabase/supabase-js";
 import type { Profile } from "@/types/database.types";
 
 interface AuthContextType {
+  session: Session | null;
   user: User | null;
   profile: Profile | null;
+  initialized: boolean;
+  /** Compatibilidade: equivalente a !initialized */
   isLoading: boolean;
   isAuthenticated: boolean;
   /** Indica falha ao carregar perfil (ex: RLS, rede). Permite UI de retry/erro. */
@@ -29,9 +32,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-const AUTH_INIT_TIMEOUT_MS = 10000;
 const PROFILE_LOAD_TIMEOUT_MS = 8000;
-const LOADING_FAILSAFE_MS = 12000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -44,9 +45,10 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
   const [profileLoadError, setProfileLoadError] = useState(false);
 
   const loadProfile = useCallback(async (userId: string) => {
@@ -81,14 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    const syncFromSession = async (session: Session | null) => {
+    const syncFromSession = async (nextSession: Session | null) => {
       if (!mounted) return;
-      setUser(session?.user ?? null);
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
 
-      if (session?.user?.id) {
+      if (nextSession?.user?.id) {
         try {
           await withTimeout(
-            loadProfile(session.user.id),
+            loadProfile(nextSession.user.id),
             PROFILE_LOAD_TIMEOUT_MS,
             "Auth profile load"
           );
@@ -107,13 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const init = async () => {
-      setIsLoading(true);
       try {
-        const { data, error } = await withTimeout(
-          authService.getSession(),
-          AUTH_INIT_TIMEOUT_MS,
-          "Auth session init"
-        );
+        const { data, error } = await authService.getSession();
         if (error && import.meta.env.DEV) {
           console.error("[AuthContext] Erro ao obter sessão:", error);
         }
@@ -124,11 +122,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error("[AuthContext] Falha na inicialização da sessão:", error);
         }
         if (!mounted) return;
+        setSession(null);
         setUser(null);
         setProfile(null);
         setProfileLoadError(false);
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted) setInitialized(true);
       }
     };
 
@@ -138,15 +137,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = authService.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
-      setIsLoading(true);
       try {
         await syncFromSession(session);
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error("[AuthContext] Erro no onAuthStateChange:", error);
         }
-      } finally {
-        if (mounted) setIsLoading(false);
       }
     });
 
@@ -155,18 +151,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, [loadProfile]);
-
-  useEffect(() => {
-    if (!isLoading) return;
-    const timeoutId = setTimeout(() => {
-      if (import.meta.env.DEV) {
-        console.warn("[AuthContext] Fail-safe: finalizando loading de autenticação.");
-      }
-      setIsLoading(false);
-    }, LOADING_FAILSAFE_MS);
-
-    return () => clearTimeout(timeoutId);
-  }, [isLoading]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await authService.signIn({ email, password });
@@ -188,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await authService.signOut();
+    setSession(null);
     setUser(null);
     setProfile(null);
     setProfileLoadError(false);
@@ -196,9 +181,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
+        session,
         user,
         profile,
-        isLoading,
+        initialized,
+        isLoading: !initialized,
         isAuthenticated: !!user,
         profileLoadError,
         signIn,

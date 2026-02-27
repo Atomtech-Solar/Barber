@@ -6,18 +6,12 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { initialized, user } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Carregando...</div>
-      </div>
-    );
-  }
+  if (!initialized) return null;
 
-  if (!isAuthenticated) {
+  if (!user) {
     const returnTo = location.pathname + location.search;
     return (
       <Navigate
