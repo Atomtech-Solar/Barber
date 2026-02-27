@@ -56,7 +56,6 @@ import { useTenant } from "@/contexts/TenantContext";
 import { reportsService } from "@/services/reports.service";
 import { professionalService } from "@/services/professional.service";
 import { serviceService } from "@/services/service.service";
-import { exportReportPDF, exportReportExcel } from "@/lib/reportsExport";
 import {
   format,
   subDays,
@@ -231,7 +230,10 @@ const AppReports = () => {
     }
   };
 
-  const handleExport = (format: "pdf" | "excel") => {
+  const handleExport = async (format: "pdf" | "excel") => {
+    // Carrega libs de exportação sob demanda para não pesar o chunk inicial de relatórios
+    const { exportReportPDF, exportReportExcel } = await import("@/lib/reportsExport");
+
     if (format === "pdf") {
       exportReportPDF({
         companyName,
@@ -594,8 +596,8 @@ const AppReports = () => {
             <Button variant="outline" onClick={() => setExportModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => handleExport("pdf")}>Exportar PDF</Button>
-            <Button onClick={() => handleExport("excel")}>Exportar Excel</Button>
+            <Button onClick={() => void handleExport("pdf")}>Exportar PDF</Button>
+            <Button onClick={() => void handleExport("excel")}>Exportar Excel</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

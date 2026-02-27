@@ -10,34 +10,39 @@ import { TenantProvider } from "@/contexts/TenantContext";
 import { AppGuard } from "@/components/auth/AppGuard";
 import { AdminGuard } from "@/components/auth/AdminGuard";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import Index from "./pages/Index";
-import Login from "./pages/auth/Login";
-import SignUp from "./pages/auth/SignUp";
-import NotFound from "./pages/NotFound";
-// Code splitting: painéis administrativos carregados sob demanda
+// Code splitting: rotas principais carregadas sob demanda
+const Index = lazy(() => import("./pages/Index"));
+const Login = lazy(() => import("./pages/auth/Login"));
+const SignUp = lazy(() => import("./pages/auth/SignUp"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 const AdminLayout = lazy(() => import("./components/layouts/AdminLayout"));
 const DashboardLayout = lazy(() => import("./components/layouts/DashboardLayout"));
-import SiteLayout from "./components/layouts/SiteLayout";
-import ClientLayout from "./components/layouts/ClientLayout";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminCompanyTeam from "./pages/admin/AdminCompanyTeam";
-import AppDashboard from "./pages/app/AppDashboard";
-import AppAgenda from "./pages/app/AppAgenda";
-import AppClients from "./pages/app/AppClients";
-import AppServices from "./pages/app/AppServices";
-import AppProfessionals from "./pages/app/AppProfessionals";
-import AppFinancial from "./pages/app/AppFinancial";
-import AppStock from "./pages/app/AppStock";
-import AppReports from "./pages/app/AppReports";
+const SiteLayout = lazy(() => import("./components/layouts/SiteLayout"));
+const ClientLayout = lazy(() => import("./components/layouts/ClientLayout"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminCompanyTeam = lazy(() => import("./pages/admin/AdminCompanyTeam"));
+const AppDashboard = lazy(() => import("./pages/app/AppDashboard"));
+const AppAgenda = lazy(() => import("./pages/app/AppAgenda"));
+const AppClients = lazy(() => import("./pages/app/AppClients"));
+const AppServices = lazy(() => import("./pages/app/AppServices"));
+const AppProfessionals = lazy(() => import("./pages/app/AppProfessionals"));
+const AppFinancial = lazy(() => import("./pages/app/AppFinancial"));
+const AppStock = lazy(() => import("./pages/app/AppStock"));
+const AppReports = lazy(() => import("./pages/app/AppReports"));
 import { ReportsGuard } from "./components/auth/ReportsGuard";
-import AppSettings from "./pages/app/AppSettings";
-import SiteLanding from "./pages/site/SiteLanding";
-import ClientHome from "./pages/client/ClientHome";
-import ClientBooking from "./pages/client/ClientBooking";
-import ClientAppointments from "./pages/client/ClientAppointments";
-import ClientProfile from "./pages/client/ClientProfile";
+const AppSettings = lazy(() => import("./pages/app/AppSettings"));
+const SiteLanding = lazy(() => import("./pages/site/SiteLanding"));
+const ClientHome = lazy(() => import("./pages/client/ClientHome"));
+const ClientBooking = lazy(() => import("./pages/client/ClientBooking"));
+const ClientAppointments = lazy(() => import("./pages/client/ClientAppointments"));
+const ClientProfile = lazy(() => import("./pages/client/ClientProfile"));
 
 const queryClient = new QueryClient();
+const LoadingScreen = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="animate-pulse text-muted-foreground">Carregando...</div>
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -47,42 +52,93 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes>
+              <Route path="/" element={<Index />} />
               <Route path="/auth/login" element={<Login />} />
-            <Route path="/auth/signup" element={<SignUp />} />
+              <Route path="/auth/signup" element={<SignUp />} />
               {/* /owner/dashboard: rota canônica para Owner; /admin mantido como alias */}
-            <Route path="/owner" element={<AdminGuard><Suspense fallback={<div className="min-h-screen flex items-center justify-center">Carregando...</div>}><AdminLayout /></Suspense></AdminGuard>}>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="companies/:companyId/team" element={<AdminCompanyTeam />} />
-            </Route>
-            <Route path="/admin" element={<AdminGuard><Suspense fallback={<div className="min-h-screen flex items-center justify-center">Carregando...</div>}><AdminLayout /></Suspense></AdminGuard>}>
-              <Route index element={<AdminDashboard />} />
-              <Route path="companies/:companyId/team" element={<AdminCompanyTeam />} />
-            </Route>
-            <Route path="/app" element={<AppGuard><Suspense fallback={<div className="min-h-screen flex items-center justify-center">Carregando...</div>}><DashboardLayout /></Suspense></AppGuard>}>
-              <Route index element={<AppDashboard />} />
-              <Route path="agenda" element={<AppAgenda />} />
-              <Route path="clients" element={<AppClients />} />
-              <Route path="services" element={<AppServices />} />
-              <Route path="professionals" element={<AppProfessionals />} />
-              <Route path="financial" element={<AppFinancial />} />
-              <Route path="stock" element={<AppStock />} />
-              <Route path="reports" element={<ReportsGuard><AppReports /></ReportsGuard>} />
-              <Route path="settings" element={<AppSettings />} />
-            </Route>
-            <Route path="/site/:slug" element={<SiteLayout />}>
-              <Route index element={<SiteLanding />} />
-            </Route>
-            <Route path="/client" element={<ClientLayout />}>
-              <Route index element={<ProtectedRoute><ClientHome /></ProtectedRoute>} />
-              <Route path="booking" element={<ClientBooking />} />
-              <Route path="appointments" element={<ProtectedRoute><ClientAppointments /></ProtectedRoute>} />
-              <Route path="profile" element={<ProtectedRoute><ClientProfile /></ProtectedRoute>} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              <Route
+                path="/owner"
+                element={
+                  <AdminGuard>
+                    <AdminLayout />
+                  </AdminGuard>
+                }
+              >
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="companies/:companyId/team" element={<AdminCompanyTeam />} />
+              </Route>
+              <Route
+                path="/admin"
+                element={
+                  <AdminGuard>
+                    <AdminLayout />
+                  </AdminGuard>
+                }
+              >
+                <Route index element={<AdminDashboard />} />
+                <Route path="companies/:companyId/team" element={<AdminCompanyTeam />} />
+              </Route>
+              <Route
+                path="/app"
+                element={
+                  <AppGuard>
+                    <DashboardLayout />
+                  </AppGuard>
+                }
+              >
+                <Route index element={<AppDashboard />} />
+                <Route path="agenda" element={<AppAgenda />} />
+                <Route path="clients" element={<AppClients />} />
+                <Route path="services" element={<AppServices />} />
+                <Route path="professionals" element={<AppProfessionals />} />
+                <Route path="financial" element={<AppFinancial />} />
+                <Route path="stock" element={<AppStock />} />
+                <Route
+                  path="reports"
+                  element={
+                    <ReportsGuard>
+                      <AppReports />
+                    </ReportsGuard>
+                  }
+                />
+                <Route path="settings" element={<AppSettings />} />
+              </Route>
+              <Route path="/site/:slug" element={<SiteLayout />}>
+                <Route index element={<SiteLanding />} />
+              </Route>
+              <Route path="/client" element={<ClientLayout />}>
+                <Route
+                  index
+                  element={
+                    <ProtectedRoute>
+                      <ClientHome />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="booking" element={<ClientBooking />} />
+                <Route
+                  path="appointments"
+                  element={
+                    <ProtectedRoute>
+                      <ClientAppointments />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="profile"
+                  element={
+                    <ProtectedRoute>
+                      <ClientProfile />
+                    </ProtectedRoute>
+                  }
+                />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
         </TooltipProvider>
       </TenantProvider>
