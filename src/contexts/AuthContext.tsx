@@ -135,8 +135,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = authService.onAuthStateChange(async (_event, session) => {
+    } = authService.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
+      // Evita re-render global em renovações automáticas de token
+      if (event === "TOKEN_REFRESHED") return;
+      // Só reage a mudanças reais de autenticação
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT") return;
       try {
         await syncFromSession(session);
       } catch (error) {
