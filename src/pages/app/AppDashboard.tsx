@@ -1,175 +1,276 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import CardWidget from "@/components/shared/CardWidget";
-import { DollarSign, Users, Calendar, TrendingUp } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { DollarSign, Users, Calendar, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import { useTenant } from "@/contexts/TenantContext";
-import { bookingService } from "@/services/booking.service";
-import { serviceService } from "@/services/service.service";
-import { clientService } from "@/services/client.service";
-import { format, startOfWeek, addDays } from "date-fns";
+import { dashboardService, getDashboardRange, type DashboardRangeKey } from "@/services/dashboard.service";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+const FILTERS: { id: DashboardRangeKey; label: string }[] = [
+  { id: "today", label: "Hoje" },
+  { id: "7d", label: "7 dias" },
+  { id: "30d", label: "30 dias" },
+  { id: "month", label: "Este mês" },
+];
+
+const STATUS_LABELS: Record<string, string> = {
+  completed: "Concluído",
+  confirmed: "Confirmado",
+  pending: "Pendente",
+  cancelled: "Cancelado",
+  blocked: "Bloqueado",
+  no_show: "Não compareceu",
+};
+
+function formatCurrency(value: number) {
+  return `R$ ${value.toFixed(2)}`;
+}
 
 const AppDashboard = () => {
   const { currentCompany } = useTenant();
   const companyId = currentCompany?.id ?? "";
+  const [rangeKey, setRangeKey] = useState<DashboardRangeKey>("7d");
+  const range = useMemo(() => getDashboardRange(rangeKey), [rangeKey]);
 
-  const today = format(new Date(), "yyyy-MM-dd");
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-
-  const { data: todayStats } = useQuery({
-    queryKey: ["booking-today", companyId],
-    queryFn: () => bookingService.getTodayStats(companyId),
+  const { data: summaryRes, isLoading: summaryLoading, isError: summaryError } = useQuery({
+    queryKey: ["dashboard-summary", companyId, range],
+    queryFn: () => dashboardService.getSummary(companyId, range),
     enabled: !!companyId,
   });
 
-  const { data: weekAppointments } = useQuery({
-    queryKey: ["appointments-week", companyId],
-    queryFn: () =>
-      bookingService.listByCompany(
-        companyId,
-        format(weekStart, "yyyy-MM-dd"),
-        format(addDays(weekStart, 6), "yyyy-MM-dd")
-      ),
+  const { data: revenueRes, isLoading: revenueLoading } = useQuery({
+    queryKey: ["dashboard-revenue", companyId, range],
+    queryFn: () => dashboardService.getRevenue(companyId, range),
+    enabled: !!companyId && !!summaryRes,
+  });
+
+  const { data: servicesRes, isLoading: servicesLoading } = useQuery({
+    queryKey: ["dashboard-services", companyId, range],
+    queryFn: () => dashboardService.getTopServices(companyId, range),
+    enabled: !!companyId && !!summaryRes,
+  });
+
+  const { data: activityRes, isLoading: activityLoading } = useQuery({
+    queryKey: ["dashboard-activity", companyId, range],
+    queryFn: () => dashboardService.getRecentActivity(companyId, range),
     enabled: !!companyId,
   });
 
-  const { data: services } = useQuery({
-    queryKey: ["services", companyId],
-    queryFn: () => serviceService.listByCompany(companyId),
-    enabled: !!companyId,
-  });
+  const summary = summaryRes?.data ?? {
+    revenue: 0,
+    appointments: 0,
+    clientsServed: 0,
+    averageTicket: 0,
+    growthPercent: 0,
+  };
+  const revenue = revenueRes?.data ?? [];
+  const topServices = servicesRes?.data ?? [];
+  const activity = activityRes?.data ?? [];
 
-  const { data: clients } = useQuery({
-    queryKey: ["clients", companyId],
-    queryFn: () => clientService.listByCompany(companyId),
-    enabled: !!companyId,
-  });
-
-  const { data: todayAppointments } = useQuery({
-    queryKey: ["appointments-today", companyId, today],
-    queryFn: () => bookingService.listByCompany(companyId, today, today),
-    enabled: !!companyId,
-  });
-
-  const appointmentsToday = todayStats?.appointmentsToday ?? 0;
-  const clientsTotal = clients?.data?.length ?? 0;
-  const newClientsToday = 0; // Would require tracking first appointment date
-  const workMinutes = 8 * 60;
-  const usedMinutes = todayStats?.totalDuration ?? 0;
-  const occupancyRate = workMinutes > 0 ? Math.round((usedMinutes / workMinutes) * 100) : 0;
-
-  const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-  const weekRevenue = weekDays.map((day, i) => {
-    const d = addDays(weekStart, i);
-    const dayStr = format(d, "yyyy-MM-dd");
-    const dayApts = (weekAppointments?.data ?? []).filter((a) => a.date === dayStr);
-    const value = dayApts.reduce((acc, a) => {
-      const svcIds = (a as { appointment_services?: { service_id: string }[] })?.appointment_services?.map(
-        (s) => s.service_id
-      ) ?? [];
-      const total = (services?.data ?? []).reduce(
-        (sum, s) => (svcIds.includes(s.id) ? sum + Number(s.price) : sum),
-        0
-      );
-      return acc + total;
-    }, 0);
-    return { day, value };
-  });
-
-  const nextAppointments = (todayAppointments?.data ?? [])
-    .slice(0, 4)
-    .map((a) => ({
-      id: a.id,
-      time: a.start_time?.slice(0, 5) ?? "",
-      client: (a as { client?: { full_name?: string } })?.client?.full_name ?? "Cliente",
-      service: "Serviço",
-    }));
+  const growthUp = summary.growthPercent >= 0;
+  const growthLabel = `${growthUp ? "+" : ""}${summary.growthPercent.toFixed(1)}%`;
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Visão geral do seu negócio</p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground text-sm">Central estratégica do negócio</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((f) => (
+            <Button
+              key={f.id}
+              variant={rangeKey === f.id ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRangeKey(f.id)}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <CardWidget
-          title="Atendimentos Hoje"
-          value={String(appointmentsToday)}
-          icon={Calendar}
-        />
-        <CardWidget title="Clientes" value={String(clientsTotal)} icon={Users} />
-        <CardWidget
-          title="Taxa Ocupação"
-          value={`${occupancyRate}%`}
-          icon={TrendingUp}
-        />
-        <CardWidget
-          title="Faturamento Hoje"
-          value="R$ -"
-          icon={DollarSign}
-        />
+      {summaryError ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm">
+          Erro ao carregar dados do dashboard. Tente novamente em instantes.
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+        {summaryLoading ? (
+          Array.from({ length: 5 }).map((_, idx) => <Skeleton key={idx} className="h-28 rounded-xl" />)
+        ) : (
+          <>
+            <CardWidget
+              title="Faturamento"
+              value={formatCurrency(summary.revenue)}
+              icon={DollarSign}
+              change={`${growthLabel} vs período anterior`}
+              trend={growthUp ? "up" : "down"}
+            />
+            <CardWidget
+              title="Agendamentos"
+              value={String(summary.appointments)}
+              icon={Calendar}
+              change={`${growthLabel} vs período anterior`}
+              trend={growthUp ? "up" : "down"}
+            />
+            <CardWidget
+              title="Clientes Atendidos"
+              value={String(summary.clientsServed)}
+              icon={Users}
+              change={`${growthLabel} vs período anterior`}
+              trend={growthUp ? "up" : "down"}
+            />
+            <CardWidget
+              title="Ticket Médio"
+              value={formatCurrency(summary.averageTicket)}
+              icon={TrendingUp}
+              change={`${growthLabel} vs período anterior`}
+              trend={growthUp ? "up" : "down"}
+            />
+            <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-muted-foreground">Crescimento</span>
+                {growthUp ? (
+                  <ArrowUpRight size={18} className="text-success" />
+                ) : (
+                  <ArrowDownRight size={18} className="text-destructive" />
+                )}
+              </div>
+              <p className={`text-2xl font-bold ${growthUp ? "text-success" : "text-destructive"}`}>
+                {growthLabel}
+              </p>
+              <p className="text-xs mt-1 text-muted-foreground">Comparado ao período anterior</p>
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5">
-          <h3 className="font-semibold mb-4">Faturamento Semanal</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={weekRevenue}>
+      <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+        <h3 className="font-semibold mb-4">Faturamento por período</h3>
+        {revenueLoading ? (
+          <Skeleton className="h-72 w-full rounded-lg" />
+        ) : revenue.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-10 text-center">
+            Sem dados de faturamento para o período selecionado.
+          </p>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={revenue}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
-                dataKey="day"
-                stroke="hsl(30, 8%, 50%)"
+                dataKey="date"
+                stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
-                stroke="hsl(30, 8%, 50%)"
+                stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
               />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(20, 10%, 8%)",
-                  border: "1px solid hsl(20, 8%, 18%)",
-                  borderRadius: "8px",
-                  color: "hsl(40, 15%, 93%)",
-                }}
-              />
-              <Bar
-                dataKey="value"
-                fill="hsl(43, 96%, 56%)"
-                radius={[6, 6, 0, 0]}
-              />
-            </BarChart>
+              <Tooltip formatter={(v: number) => [formatCurrency(v), "Faturamento"]} />
+              <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={false} />
+            </LineChart>
           </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+          <h3 className="font-semibold mb-4">Serviços Mais Vendidos</h3>
+          {servicesLoading ? (
+            <Skeleton className="h-64 w-full rounded-lg" />
+          ) : topServices.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              Sem dados de serviços no período.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={topServices}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="serviceName" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <Tooltip formatter={(v: number) => [v, "Quantidade"]} />
+                <Bar dataKey="quantity" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="font-semibold mb-4">Próximos Horários</h3>
-          <div className="space-y-3">
-            {nextAppointments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nenhum agendamento para hoje
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+          <h3 className="font-semibold mb-4">Formas de Pagamento</h3>
+          <div className="h-[250px] rounded-lg border border-dashed border-border bg-muted/20 flex items-center justify-center text-center p-4">
+            <div>
+              <p className="font-medium">Futuro</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                A análise de formas de pagamento será implementada em uma próxima etapa.
               </p>
-            ) : (
-              nextAppointments.map((apt) => (
-                <div
-                  key={apt.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50"
-                >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                    {apt.time}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{apt.client}</p>
-                    <p className="text-xs text-muted-foreground">{apt.service}</p>
-                  </div>
-                </div>
-              ))
-            )}
+            </div>
           </div>
         </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+        <h3 className="font-semibold mb-4">Atividade Recente</h3>
+        {activityLoading ? (
+          <Skeleton className="h-64 w-full rounded-lg" />
+        ) : activity.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-8 text-center">
+            Nenhuma atividade recente no período selecionado.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Horário</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Serviço</TableHead>
+                  <TableHead>Profissional</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activity.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>{row.time}</TableCell>
+                    <TableCell>{row.client}</TableCell>
+                    <TableCell>{row.service}</TableCell>
+                    <TableCell>{row.professional}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(row.amount)}</TableCell>
+                    <TableCell>{STATUS_LABELS[row.status] ?? row.status}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
     </div>
   );

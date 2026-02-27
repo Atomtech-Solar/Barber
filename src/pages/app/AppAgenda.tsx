@@ -74,6 +74,7 @@ const AppAgenda = () => {
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
+  const [selectedDayOffset, setSelectedDayOffset] = useState<number>(0);
   const [newSlot, setNewSlot] = useState<{ date: string; startTime: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -220,6 +221,17 @@ const AppAgenda = () => {
 
   const WEEK_DAYS = 7;
   const dayLabels = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  const weekDays = Array.from({ length: WEEK_DAYS }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    return {
+      offset: i,
+      dateObj: d,
+      dateStr: format(d, "yyyy-MM-dd"),
+      label: dayLabels[i],
+    };
+  });
+  const mobileDay = weekDays[Math.min(Math.max(selectedDayOffset, 0), WEEK_DAYS - 1)];
 
   /** Agendamentos que COBREM este slot (inclui os que estão em andamento) */
   const getAppointmentsCoveringCell = (dateStr: string, slotTime: string): Appointment[] => {
@@ -325,7 +337,7 @@ const AppAgenda = () => {
           >
             <ChevronLeft size={16} />
           </Button>
-          <span className="text-sm font-medium px-3 min-w-[220px] text-center">
+          <span className="text-xs md:text-sm font-medium px-2 md:px-3 min-w-0 md:min-w-[220px] text-center">
             {format(weekStart, "d MMM", { locale: ptBR })} –{" "}
             {format(addWeeks(weekStart, 1), "d MMM yyyy", { locale: ptBR })}
           </span>
@@ -339,28 +351,48 @@ const AppAgenda = () => {
         </div>
       }
     >
+      <div className="md:hidden mb-4">
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {weekDays.map((d) => {
+            const isSelected = d.offset === selectedDayOffset;
+            const isToday = d.dateStr === todayStr;
+            return (
+              <Button
+                key={d.dateStr}
+                type="button"
+                variant={isSelected ? "default" : "outline"}
+                size="sm"
+                className="shrink-0"
+                onClick={() => setSelectedDayOffset(d.offset)}
+              >
+                {d.label} {format(d.dateObj, "d")}
+                {isToday ? " · Hoje" : ""}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
+        <div className="hidden md:block overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
           <table className="w-full border-collapse min-w-[600px]">
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
               <tr className="border-b border-border bg-muted/30">
                 <th className="p-3 text-left text-xs font-medium text-muted-foreground w-[60px]">
                   Horário
                 </th>
-                {Array.from({ length: WEEK_DAYS }, (_, i) => {
-                  const d = new Date(weekStart);
-                  d.setDate(d.getDate() + i);
-                  const dateStr = format(d, "yyyy-MM-dd");
+                {weekDays.map((d) => {
+                  const dateStr = d.dateStr;
                   const isToday = dateStr === todayStr;
                   return (
                     <th
-                      key={i}
+                      key={dateStr}
                       className={`p-3 text-center text-sm font-medium border-l border-border min-w-[100px] ${
                         isToday ? "bg-primary/10 text-primary" : ""
                       }`}
                     >
-                      <div>{dayLabels[i]}</div>
-                      <div className="text-xs text-muted-foreground">{format(d, "d")}</div>
+                      <div>{d.label}</div>
+                      <div className="text-xs text-muted-foreground">{format(d.dateObj, "d")}</div>
                     </th>
                   );
                 })}
@@ -383,10 +415,8 @@ const AppAgenda = () => {
                     >
                       {slotTime}
                     </td>
-                    {Array.from({ length: WEEK_DAYS }, (_, dayOffset) => {
-                      const d = new Date(weekStart);
-                      d.setDate(d.getDate() + dayOffset);
-                      const dateStr = format(d, "yyyy-MM-dd");
+                    {weekDays.map((d, dayOffset) => {
+                      const dateStr = d.dateStr;
                       const cellApts = getAppointmentsStartingInCell(dateStr, slotTime);
                       const isToday = dateStr === todayStr;
 
@@ -446,6 +476,59 @@ const AppAgenda = () => {
               })}
             </tbody>
           </table>
+        </div>
+
+        <div className="md:hidden p-3 space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
+          {SLOTS.map((slotTime) => {
+            const dateStr = mobileDay.dateStr;
+            const startingApts = getAppointmentsStartingInCell(dateStr, slotTime);
+            const isNow = dateStr === todayStr && currentSlot === slotTime;
+
+            return (
+              <div
+                key={`${dateStr}-${slotTime}`}
+                className={`rounded-lg border p-2 ${isNow ? "border-primary bg-primary/5" : "border-border"}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className={`text-sm font-medium ${isNow ? "text-primary" : ""}`}>{slotTime}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCellClick(dateStr, slotTime)}
+                  >
+                    {startingApts.length === 0 ? "Agendar" : "Abrir"}
+                  </Button>
+                </div>
+                {startingApts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Horário livre</p>
+                ) : (
+                  <div className="space-y-1">
+                    {startingApts.map((apt) => {
+                      const profName = getProfessionalName(apt.professional_id);
+                      const clientName = apt.client_name ?? "Cliente";
+                      const isConflict = conflictingIds.has(apt.id);
+                      const variant = isConflict
+                        ? "bg-red-500/20 border-red-500/50 text-red-700 dark:text-red-300"
+                        : getStatusVariant(apt.status);
+                      return (
+                        <button
+                          key={`${apt.id}-${slotTime}-mobile`}
+                          className={`w-full text-left rounded px-2 py-1 text-xs border transition-opacity hover:opacity-90 ${variant}`}
+                          title={isConflict ? "Conflito de horário" : undefined}
+                          onClick={() => setEditingId(apt.id)}
+                        >
+                          <p className="font-medium truncate">{clientName}</p>
+                          <p className="opacity-80 truncate">
+                            {profName} · {apt.duration_minutes}min
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
