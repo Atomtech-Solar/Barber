@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { SignUpForm, type SignUpFormValues } from "@/components/auth/SignUpForm";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, Scissors } from "lucide-react";
 
 export default function SignUp() {
   const { signUp } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get("returnTo") ?? "/client";
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export default function SignUp() {
       return;
     }
     const path = returnTo.startsWith("/") ? returnTo : `/${returnTo}`;
-    window.location.replace(path);
+    navigate(path, { replace: true });
   };
 
   return (

@@ -83,15 +83,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = authService.onAuthStateChange((_event, session) => {
+    } = authService.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
+      setIsLoading(true);
       setUser(session?.user ?? null);
       if (session?.user?.id) {
-        loadProfile(session.user.id);
+        await loadProfile(session.user.id);
       } else {
         setProfile(null);
         setProfileLoadError(false);
       }
+      if (mounted) setIsLoading(false);
     });
 
     return () => {

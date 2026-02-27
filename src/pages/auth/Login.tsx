@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { ArrowLeft, Scissors } from "lucide-react";
 
 export default function Login() {
   const { signIn } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get("returnTo") ?? "/client";
   const loginOnly = searchParams.get("loginOnly") === "1";
@@ -22,9 +23,8 @@ export default function Login() {
       setError("Email ou senha incorretos. Tente novamente.");
       return;
     }
-    // Redireciona com reload para garantir que o AuthContext carregue a sessão
     const path = returnTo.startsWith("/") ? returnTo : `/${returnTo}`;
-    window.location.replace(path);
+    navigate(path, { replace: true });
   };
 
   return (
