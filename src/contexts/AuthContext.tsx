@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { authService } from "@/services/auth.service";
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [profileLoadError, setProfileLoadError] = useState(false);
+  const lastSessionId = useRef<string | null>(null);
 
   const loadProfile = useCallback(async (userId: string) => {
     setProfileLoadError(false);
@@ -87,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
+      lastSessionId.current = nextSession?.access_token ?? null;
 
       if (nextSession?.user?.id) {
         try {
@@ -139,8 +142,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       // Evita re-render global em renovações automáticas de token
       if (event === "TOKEN_REFRESHED") return;
+      // Ignora INITIAL_SESSION quando já temos sessão válida hidratada
+      if (event === "INITIAL_SESSION" && lastSessionId.current) return;
+
+      const currentSessionId = session?.access_token ?? null;
+      // Evita updates duplicados com a mesma sessão
+      if (lastSessionId.current === currentSessionId) return;
+
       // Só reage a mudanças reais de autenticação
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT") return;
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "INITIAL_SESSION") return;
       try {
         await syncFromSession(session);
       } catch (error) {
@@ -154,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await authService.signIn({ email, password });
@@ -176,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await authService.signOut();
+    lastSessionId.current = null;
     setSession(null);
     setUser(null);
     setProfile(null);
