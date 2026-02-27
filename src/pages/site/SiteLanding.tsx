@@ -177,7 +177,7 @@ const SiteLanding = () => {
       </section>
 
       <footer className="py-12 px-6 border-t border-border text-center text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} {company.name} · Powered by BeautyHub</p>
+        <p>© {new Date().getFullYear()} {company.name} · Powered by brynex</p>
       </footer>
     </div>
   );

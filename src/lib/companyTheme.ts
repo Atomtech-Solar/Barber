@@ -1,6 +1,6 @@
 import type { Company } from "@/types/database.types";
 
-const DEFAULT_PRIMARY = "#fbbf24";
+const DEFAULT_PRIMARY = "#6fcf97";
 
 function hexToHslToken(hex: string): string {
   const value = hex.replace("#", "");
@@ -13,7 +13,7 @@ function hexToHslToken(hex: string): string {
       : value;
 
   if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
-    return "43 96% 56%";
+    return "142 46% 52%";
   }
 
   const r = parseInt(normalized.slice(0, 2), 16) / 255;

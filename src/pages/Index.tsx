@@ -35,7 +35,7 @@ const Index = () => {
         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
           <Scissors className="text-primary" size={32} />
         </div>
-        <h1 className="text-4xl font-bold mb-2">BeautyHub</h1>
+        <h1 className="text-4xl font-bold mb-2">brynex</h1>
         <p className="text-muted-foreground">Plataforma SaaS para gestão de negócios de beleza</p>
       </div>
       <div className="space-y-3">

@@ -102,7 +102,7 @@ const DashboardLayout = () => {
       >
         <div className="flex items-center justify-between p-4 border-b border-border">
           {!collapsed && (
-            <span className="font-display text-lg font-bold text-primary">BeautyHub</span>
+            <span className="font-display text-lg font-bold text-primary">brynex</span>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -128,7 +128,7 @@ const DashboardLayout = () => {
               </SheetTrigger>
               <SheetContent side="left" className="w-[85%] max-w-[320px] p-0">
                 <SheetHeader className="p-4 border-b border-border">
-                  <SheetTitle className="font-display text-primary">BeautyHub</SheetTitle>
+                  <SheetTitle className="font-display text-primary">brynex</SheetTitle>
                 </SheetHeader>
                 <nav className="p-2 space-y-1 overflow-y-auto">
                   {renderNavLinks(false, () => setMobileMenuOpen(false))}

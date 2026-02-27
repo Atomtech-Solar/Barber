@@ -169,11 +169,11 @@ const AdminCompanyTeam = () => {
       description="Usuários vinculados à empresa atual"
       actions={
         <>
-          <Button variant="outline" onClick={() => navigate("/owner/dashboard")}>
+          <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate("/owner/dashboard")}>
             <ArrowLeft size={16} className="mr-2" />
             Voltar
           </Button>
-          <Button onClick={() => setOpenAdd(true)}>
+          <Button className="w-full sm:w-auto" onClick={() => setOpenAdd(true)}>
             <Plus size={16} className="mr-2" />
             Adicionar usuário
           </Button>
@@ -193,7 +193,7 @@ const AdminCompanyTeam = () => {
             {members.map((member) => (
               <div
                 key={`${member.company_id}-${member.user_id}`}
-                className="flex items-center justify-between gap-4 rounded-lg border border-border p-3"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-border p-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <Avatar className="h-10 w-10">
@@ -213,32 +213,35 @@ const AdminCompanyTeam = () => {
                     </p>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditingMember(member);
-                    setForm({
-                      full_name: member.full_name ?? "",
-                      email: member.email ?? "",
-                      phone: member.phone ?? "",
-                      password: "",
-                      allowed_pages: member.allowed_pages ?? [...APP_PAGE_KEYS],
-                    });
-                  }}
-                >
-                  <Pencil size={14} className="mr-1" />
-                  Editar perfil
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive"
-                  onClick={() => setToRemove(member)}
-                >
-                  <Trash2 size={14} className="mr-1" />
-                  Remover da empresa
-                </Button>
+                <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() => {
+                      setEditingMember(member);
+                      setForm({
+                        full_name: member.full_name ?? "",
+                        email: member.email ?? "",
+                        phone: member.phone ?? "",
+                        password: "",
+                        allowed_pages: member.allowed_pages ?? [...APP_PAGE_KEYS],
+                      });
+                    }}
+                  >
+                    <Pencil size={14} className="mr-1" />
+                    Editar perfil
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto text-destructive"
+                    onClick={() => setToRemove(member)}
+                  >
+                    <Trash2 size={14} className="mr-1" />
+                    Remover da empresa
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

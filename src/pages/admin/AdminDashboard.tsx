@@ -143,7 +143,7 @@ const AdminDashboard = () => {
       title="Empresas"
       description="Gerencie as empresas da plataforma"
       actions={
-        <Button onClick={() => setCreating(true)}>
+        <Button className="w-full sm:w-auto" onClick={() => setCreating(true)}>
           <Plus size={16} className="mr-2" />
           Nova Empresa
         </Button>
@@ -158,9 +158,9 @@ const AdminDashboard = () => {
           companies.map((company) => (
             <div
               key={company.id}
-              className="bg-card border border-border rounded-xl p-5 flex items-center justify-between"
+              className="bg-card border border-border rounded-xl p-4 md:p-5 flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between"
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-start sm:items-center gap-3 md:gap-4 min-w-0">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl overflow-hidden">
                   {(company.logo_url ?? company.logo) ? (
                     <img
@@ -192,13 +192,14 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="w-full lg:w-auto flex flex-wrap items-center gap-2 md:gap-3">
                 <Badge variant={company.status === "active" ? "default" : "destructive"}>
                   {company.status === "active" ? "Ativo" : "Bloqueado"}
                 </Badge>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="flex-1 sm:flex-initial"
                   onClick={() => handleAcessar(company)}
                 >
                   <Eye size={14} className="mr-1" /> Acessar
@@ -206,6 +207,7 @@ const AdminDashboard = () => {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="flex-1 sm:flex-initial"
                   onClick={() => navigate(`/owner/companies/${company.id}/team`)}
                 >
                   <Users size={14} className="mr-1" /> Equipe

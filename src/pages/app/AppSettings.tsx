@@ -12,7 +12,7 @@ import { applyCompanyTheme } from "@/lib/companyTheme";
 
 const DEFAULT_OPENING_TIME = "09:00";
 const DEFAULT_CLOSING_TIME = "19:00";
-const DEFAULT_PRIMARY_COLOR = "#fbbf24";
+const DEFAULT_PRIMARY_COLOR = "#6fcf97";
 
 function isThirtyMinuteTime(time: string) {
   const minutes = Number(time.split(":")[1] ?? "0");
