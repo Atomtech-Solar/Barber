@@ -20,7 +20,7 @@ export default function Login() {
     const { error: err } = await signIn(values.email, values.password);
     if (err) {
       setIsLoading(false);
-      setError("Email ou senha incorretos. Tente novamente.");
+      setError(err instanceof Error ? err.message : "Email ou senha incorretos. Tente novamente.");
       return;
     }
     const path = returnTo.startsWith("/") ? returnTo : `/${returnTo}`;
