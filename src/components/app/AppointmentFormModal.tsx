@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2 } from "lucide-react";
 import { maskPhone } from "@/lib/masks";
 import { setHours, setMinutes, addMinutes, format } from "date-fns";
-import type { Appointment, Professional, Service } from "@/types/database.types";
+import type { Appointment, ProfessionalWithServices, Service } from "@/types/database.types";
 import type { CompanyClientWithVisitCount } from "@/services/client.service";
 import type { AppointmentStatus } from "@/types/database.types";
 
@@ -77,7 +77,7 @@ interface AppointmentFormModalProps {
   /** Para edit */
   appointment?: Appointment & { service_ids?: string[] } | null;
   services: Service[];
-  professionals: Professional[];
+  professionals: ProfessionalWithServices[];
   clients?: CompanyClientWithVisitCount[];
   appointments?: Appointment[];
   companyId: string;
@@ -167,6 +167,18 @@ export function AppointmentFormModal({
   };
 
   const [values, setValues] = useState<FormValues>(getDefaultValues);
+  const selectedProfessional = useMemo(
+    () => professionals.find((p) => p.id === values.professional_id),
+    [professionals, values.professional_id]
+  );
+  const selectedProfessionalServiceIds = useMemo(
+    () => new Set(selectedProfessional?.professional_services?.map((ps) => ps.service_id) ?? []),
+    [selectedProfessional]
+  );
+  const filteredServices = useMemo(
+    () => services.filter((service) => selectedProfessionalServiceIds.has(service.id)),
+    [services, selectedProfessionalServiceIds]
+  );
 
   const getInitialClientSelectValue = (): string => {
     const v = getDefaultValues();
@@ -187,6 +199,26 @@ export function AppointmentFormModal({
       setClientSelectValue(getInitialClientSelectValue());
     }
   }, [open, isCreate, initialSlot?.date, initialSlot?.startTime, appointment?.id]);
+
+  useEffect(() => {
+    setValues((prev) => {
+      const allowedServiceIds = new Set(filteredServices.map((s) => s.id));
+      const nextServiceIds = prev.service_ids.filter((id) => allowedServiceIds.has(id));
+
+      if (nextServiceIds.length === prev.service_ids.length) return prev;
+
+      const nextDuration = nextServiceIds.reduce(
+        (acc, sid) => acc + (services.find((s) => s.id === sid)?.duration_minutes ?? 0),
+        0
+      );
+
+      return {
+        ...prev,
+        service_ids: nextServiceIds,
+        duration_minutes: nextDuration || 30,
+      };
+    });
+  }, [filteredServices, services]);
 
   const duration = values.service_ids.reduce(
     (acc, sid) => acc + (services.find((s) => s.id === sid)?.duration_minutes ?? 0),
@@ -210,6 +242,7 @@ export function AppointmentFormModal({
   };
 
   const toggleService = (serviceId: string) => {
+    if (!filteredServices.some((s) => s.id === serviceId)) return;
     setValues((v) => {
       const has = v.service_ids.includes(serviceId);
       const next = has
@@ -310,7 +343,25 @@ export function AppointmentFormModal({
             <Label>Qual funcionário vai atender? *</Label>
             <Select
               value={values.professional_id}
-              onValueChange={(id) => setValues((v) => ({ ...v, professional_id: id }))}
+              onValueChange={(id) => {
+                const professional = professionals.find((p) => p.id === id);
+                const allowedServiceIds = new Set(
+                  professional?.professional_services?.map((ps) => ps.service_id) ?? []
+                );
+                setValues((v) => ({
+                  ...v,
+                  professional_id: id,
+                  service_ids: v.service_ids.filter((sid) => allowedServiceIds.has(sid)),
+                  duration_minutes:
+                    v.service_ids
+                      .filter((sid) => allowedServiceIds.has(sid))
+                      .reduce(
+                        (acc, sid) =>
+                          acc + (services.find((s) => s.id === sid)?.duration_minutes ?? 0),
+                        0
+                      ) || 30,
+                }));
+              }}
               required
             >
               <SelectTrigger>
@@ -363,7 +414,7 @@ export function AppointmentFormModal({
           <div>
             <Label>Serviços * (ex: Corte + Barba)</Label>
             <div className="mt-2 flex flex-wrap gap-4 rounded-lg border border-input p-4">
-              {services.map((s) => {
+              {filteredServices.map((s) => {
                 const checked = values.service_ids.includes(s.id);
                 return (
                   <label
@@ -381,6 +432,11 @@ export function AppointmentFormModal({
                 );
               })}
             </div>
+            {values.professional_id && filteredServices.length === 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Este profissional não possui serviços vinculados na aba Profissionais.
+              </p>
+            )}
             {values.service_ids.length === 0 && (
               <p className="mt-1 text-xs text-destructive">
                 Selecione ao menos um serviço

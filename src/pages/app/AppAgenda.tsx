@@ -12,7 +12,7 @@ import { serviceService } from "@/services/service.service";
 import { format, addWeeks, subWeeks, startOfWeek, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import type { Appointment, Professional, Service } from "@/types/database.types";
+import type { Appointment, ProfessionalWithServices, Service } from "@/types/database.types";
 import { AppointmentFormModal, type FormValues } from "@/components/app/AppointmentFormModal";
 
 const SLOT_MINUTES = 30;
@@ -83,7 +83,7 @@ const AppAgenda = () => {
 
   const { data: professionalsData } = useQuery({
     queryKey: ["professionals", companyId],
-    queryFn: () => professionalService.listByCompany(companyId),
+    queryFn: () => professionalService.listByCompanyWithServices(companyId),
     enabled: !!companyId,
   });
 
@@ -111,7 +111,7 @@ const AppAgenda = () => {
     enabled: !!editingId,
   });
 
-  const professionals = professionalsData?.data ?? [];
+  const professionals: ProfessionalWithServices[] = professionalsData?.data ?? [];
   const services = servicesData?.data ?? [];
   const clients = clientsData?.data ?? [];
   const appointments = appointmentsData?.data ?? [];
