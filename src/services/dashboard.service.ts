@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { addDays, differenceInCalendarDays, format, subDays } from "date-fns";
+import { addDays, differenceInCalendarDays, format, startOfMonth, startOfWeek, subDays } from "date-fns";
 
 export type DashboardRangeKey = "today" | "7d" | "30d" | "month";
 
@@ -41,6 +41,35 @@ export interface DashboardActivityItem {
   status: string;
 }
 
+export interface DashboardGoalPerformance {
+  goalType: "daily" | "weekly" | "monthly" | "custom";
+  goalAmount: number;
+  currentRevenue: number;
+  percent: number;
+  progressPercent: number;
+  status: "danger" | "warning" | "success";
+}
+
+export interface DashboardServiceRankingItem {
+  serviceId: string;
+  serviceName: string;
+  appointments: number;
+  revenue: number;
+}
+
+export interface DashboardProfessionalRankingItem {
+  professionalId: string;
+  professionalName: string;
+  appointments: number;
+  revenue: number;
+}
+
+export interface DashboardBusinessPerformance {
+  goal: DashboardGoalPerformance;
+  topServices: DashboardServiceRankingItem[];
+  topProfessionals: DashboardProfessionalRankingItem[];
+}
+
 function getRangeDays(range: DashboardRange) {
   return differenceInCalendarDays(new Date(range.endDate), new Date(range.startDate)) + 1;
 }
@@ -76,6 +105,18 @@ function getPreviousRange(range: DashboardRange): DashboardRange {
 function normalizeGrowth(current: number, previous: number) {
   if (previous <= 0) return current > 0 ? 100 : 0;
   return ((current - previous) / previous) * 100;
+}
+
+function getGoalStatus(percent: number): DashboardGoalPerformance["status"] {
+  if (percent < 50) return "danger";
+  if (percent < 80) return "warning";
+  return "success";
+}
+
+function isValidIsoDay(value: string | null | undefined): value is string {
+  if (!value) return false;
+  const date = new Date(`${value}T00:00:00`);
+  return !Number.isNaN(date.getTime());
 }
 
 export const dashboardService = {
@@ -301,5 +342,235 @@ export const dashboardService = {
     });
 
     return { data: items, error: null };
+  },
+
+  async getBusinessPerformance(companyId: string, range: DashboardRange) {
+    const endDate = new Date(range.endDate);
+    const defaultGoalPeriod: DashboardGoalPerformance["goalType"] = "weekly";
+    const dailyRange: DashboardRange = { startDate: range.endDate, endDate: range.endDate };
+    const weeklyRange: DashboardRange = {
+      startDate: format(startOfWeek(endDate, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+      endDate: range.endDate,
+    };
+    const monthlyRange: DashboardRange = {
+      startDate: format(startOfMonth(endDate), "yyyy-MM-dd"),
+      endDate: range.endDate,
+    };
+
+    const { data: companyData, error: companyError } = await supabase
+      .from("companies")
+      .select("revenue_goal_amount, revenue_goal_period, revenue_goal_custom_start_date, revenue_goal_custom_end_date")
+      .eq("id", companyId)
+      .single();
+
+    const configuredGoalPeriod: DashboardGoalPerformance["goalType"] =
+      companyData?.revenue_goal_period === "daily" ||
+      companyData?.revenue_goal_period === "weekly" ||
+      companyData?.revenue_goal_period === "monthly" ||
+      companyData?.revenue_goal_period === "custom"
+        ? companyData.revenue_goal_period
+        : defaultGoalPeriod;
+
+    const hasValidCustomRange =
+      isValidIsoDay(companyData?.revenue_goal_custom_start_date) &&
+      isValidIsoDay(companyData?.revenue_goal_custom_end_date) &&
+      companyData.revenue_goal_custom_start_date <= companyData.revenue_goal_custom_end_date;
+
+    const goalRange: DashboardRange =
+      configuredGoalPeriod === "daily"
+        ? dailyRange
+        : configuredGoalPeriod === "weekly"
+        ? weeklyRange
+        : configuredGoalPeriod === "monthly"
+        ? monthlyRange
+        : hasValidCustomRange
+        ? {
+            startDate: companyData!.revenue_goal_custom_start_date!,
+            endDate: companyData!.revenue_goal_custom_end_date!,
+          }
+        : monthlyRange;
+
+    const previousGoalRange = getPreviousRange(goalRange);
+
+    const [goalRevenueRes, previousGoalRevenueRes, appointmentsRes] = await Promise.all([
+      supabase
+        .from("financial_records")
+        .select("amount")
+        .eq("company_id", companyId)
+        .eq("type", "income")
+        .eq("is_valid", true)
+        .gte("created_at", `${goalRange.startDate}T00:00:00`)
+        .lte("created_at", `${goalRange.endDate}T23:59:59`),
+      supabase
+        .from("financial_records")
+        .select("amount")
+        .eq("company_id", companyId)
+        .eq("type", "income")
+        .eq("is_valid", true)
+        .gte("created_at", `${previousGoalRange.startDate}T00:00:00`)
+        .lte("created_at", `${previousGoalRange.endDate}T23:59:59`),
+      supabase
+        .from("appointments")
+        .select("id, professional_id, appointment_services(service_id)")
+        .eq("company_id", companyId)
+        .eq("status", "completed")
+        .gte("date", range.startDate)
+        .lte("date", range.endDate),
+    ]);
+
+    const currentRevenue = (goalRevenueRes.data ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
+    const previousRevenue = (previousGoalRevenueRes.data ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
+
+    const configuredGoalAmount = Number(companyData?.revenue_goal_amount ?? 0);
+    const hasConfiguredGoal = configuredGoalAmount > 0;
+    const fallbackGoal =
+      configuredGoalPeriod === "daily" ? 500 : configuredGoalPeriod === "weekly" ? 3500 : 12000;
+    const computedGoalAmount = previousRevenue > 0 ? previousRevenue * 1.1 : Math.max(currentRevenue * 1.2, fallbackGoal);
+    const goalAmount = hasConfiguredGoal ? configuredGoalAmount : computedGoalAmount;
+    const percent = goalAmount > 0 ? (currentRevenue / goalAmount) * 100 : 0;
+    const progressPercent = Math.max(0, Math.min(percent, 100));
+
+    const goal: DashboardGoalPerformance = {
+      goalType:
+        configuredGoalPeriod === "custom" && !hasValidCustomRange ? "monthly" : configuredGoalPeriod,
+      goalAmount,
+      currentRevenue,
+      percent,
+      progressPercent,
+      status: getGoalStatus(percent),
+    };
+
+    if (companyError) {
+      return {
+        data: {
+          goal,
+          topServices: [] as DashboardServiceRankingItem[],
+          topProfessionals: [] as DashboardProfessionalRankingItem[],
+        },
+        error: companyError,
+      };
+    }
+
+    if (appointmentsRes.error) {
+      return {
+        data: {
+          goal,
+          topServices: [] as DashboardServiceRankingItem[],
+          topProfessionals: [] as DashboardProfessionalRankingItem[],
+        },
+        error: appointmentsRes.error,
+      };
+    }
+
+    const appointments =
+      (appointmentsRes.data as
+        | { id: string; professional_id: string; appointment_services?: { service_id: string }[] }[]
+        | null) ?? [];
+
+    const appointmentIds = appointments.map((appointment) => appointment.id);
+    const serviceIds = [
+      ...new Set(appointments.flatMap((appointment) => (appointment.appointment_services ?? []).map((s) => s.service_id))),
+    ];
+    const professionalIds = [...new Set(appointments.map((appointment) => appointment.professional_id))];
+
+    const [recordsRes, servicesRes, professionalsRes] = await Promise.all([
+      appointmentIds.length
+        ? supabase
+            .from("financial_records")
+            .select("appointment_id, amount")
+            .eq("company_id", companyId)
+            .eq("type", "income")
+            .eq("is_valid", true)
+            .in("appointment_id", appointmentIds)
+        : Promise.resolve({ data: [] as { appointment_id: string | null; amount: number }[] }),
+      serviceIds.length
+        ? supabase.from("services").select("id, name, price").eq("company_id", companyId).in("id", serviceIds)
+        : Promise.resolve({ data: [] as { id: string; name: string; price: number }[] }),
+      professionalIds.length
+        ? supabase
+            .from("professionals")
+            .select("id, name")
+            .eq("company_id", companyId)
+            .in("id", professionalIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    ]);
+
+    const serviceById = Object.fromEntries(
+      ((servicesRes.data ?? []) as { id: string; name: string; price: number }[]).map((service) => [
+        service.id,
+        { name: service.name, price: Number(service.price ?? 0) },
+      ])
+    );
+    const professionalById = Object.fromEntries(
+      ((professionalsRes.data ?? []) as { id: string; name: string }[]).map((professional) => [
+        professional.id,
+        professional.name,
+      ])
+    );
+
+    const revenueByAppointment: Record<string, number> = {};
+    ((recordsRes.data ?? []) as { appointment_id: string | null; amount: number }[]).forEach((record) => {
+      if (!record.appointment_id) return;
+      revenueByAppointment[record.appointment_id] =
+        (revenueByAppointment[record.appointment_id] ?? 0) + Number(record.amount ?? 0);
+    });
+
+    const serviceStats: Record<string, DashboardServiceRankingItem> = {};
+    const professionalStats: Record<string, DashboardProfessionalRankingItem> = {};
+
+    appointments.forEach((appointment) => {
+      const serviceRefs = appointment.appointment_services ?? [];
+      serviceRefs.forEach((serviceRef) => {
+        const serviceInfo = serviceById[serviceRef.service_id];
+        if (!serviceInfo) return;
+
+        if (!serviceStats[serviceRef.service_id]) {
+          serviceStats[serviceRef.service_id] = {
+            serviceId: serviceRef.service_id,
+            serviceName: serviceInfo.name,
+            appointments: 0,
+            revenue: 0,
+          };
+        }
+
+        serviceStats[serviceRef.service_id].appointments += 1;
+        serviceStats[serviceRef.service_id].revenue += Number(serviceInfo.price ?? 0);
+      });
+
+      const professionalId = appointment.professional_id;
+      if (!professionalStats[professionalId]) {
+        professionalStats[professionalId] = {
+          professionalId,
+          professionalName: professionalById[professionalId] ?? "—",
+          appointments: 0,
+          revenue: 0,
+        };
+      }
+
+      professionalStats[professionalId].appointments += 1;
+      professionalStats[professionalId].revenue += revenueByAppointment[appointment.id] ?? 0;
+    });
+
+    const topServices = Object.values(serviceStats)
+      .sort((a, b) => b.appointments - a.appointments || b.revenue - a.revenue)
+      .slice(0, 5);
+    const topProfessionals = Object.values(professionalStats)
+      .sort((a, b) => b.appointments - a.appointments || b.revenue - a.revenue)
+      .slice(0, 5);
+
+    return {
+      data: {
+        goal,
+        topServices,
+        topProfessionals,
+      } as DashboardBusinessPerformance,
+      error:
+        goalRevenueRes.error ??
+        previousGoalRevenueRes.error ??
+        recordsRes.error ??
+        servicesRes.error ??
+        professionalsRes.error ??
+        null,
+    };
   },
 };

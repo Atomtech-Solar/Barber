@@ -19,6 +19,10 @@ export interface Company {
   customization_enabled: boolean;
   dashboard_theme: "dark" | "light" | null;
   dashboard_primary_color: string | null;
+  revenue_goal_amount: number | null;
+  revenue_goal_period: "daily" | "weekly" | "monthly" | "custom" | null;
+  revenue_goal_custom_start_date: string | null;
+  revenue_goal_custom_end_date: string | null;
   status: 'active' | 'blocked';
   /** Data em que o plano foi iniciado (admin) */
   active_from: string | null;
