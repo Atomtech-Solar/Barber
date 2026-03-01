@@ -19,9 +19,9 @@ interface StockProductHistoryModalProps {
 }
 
 function MovementIcon({ type, qty }: { type: string; qty: number }) {
-  if (type === "entry" || (type === "adjustment" && qty > 0))
+  if (type === "entry")
     return <ArrowDownCircle className="h-4 w-4 text-green-600 shrink-0" />;
-  if (type === "usage" || type === "sale" || (type === "adjustment" && qty < 0))
+  if (type === "usage" || type === "sale")
     return <ArrowUpCircle className="h-4 w-4 text-red-600 shrink-0" />;
   return <Minus className="h-4 w-4 text-muted-foreground shrink-0" />;
 }
@@ -61,7 +61,7 @@ export function StockProductHistoryModal({
               <p>{product?.name}</p>
               <p className="text-sm font-normal text-muted-foreground">
                 Estoque atual: {product?.current_quantity ?? 0}{" "}
-                {product ? getUnitLabel(product.unit) : ""} · Mín: {product?.minimum_stock ?? 0}
+                {product ? getUnitLabel(product.unit_type) : ""} · Mín: {product?.minimum_stock ?? 0}
               </p>
             </div>
           </DialogTitle>
@@ -83,8 +83,16 @@ export function StockProductHistoryModal({
                   <div className="flex-1 min-w-0">
                     <p className="font-medium">
                       {getMovementLabel(m.movement_type)}{" "}
-                      <span className={m.quantity > 0 ? "text-green-600" : "text-red-600"}>
-                        {m.quantity > 0 ? "+" : ""}
+                      <span
+                        className={
+                          m.movement_type === "entry"
+                            ? "text-green-600"
+                            : m.movement_type === "usage" || m.movement_type === "sale"
+                            ? "text-red-600"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {m.movement_type === "entry" ? "+" : ""}
                         {m.quantity}
                       </span>
                     </p>

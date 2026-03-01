@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { stockService, MOVEMENT_OPTIONS, getUnitLabel } from "@/services/stock.service";
 import type { StockProduct, StockMovementType } from "@/types/database.types";
+import { toast } from "sonner";
 
 interface StockMovementFormModalProps {
   open: boolean;
@@ -44,8 +45,11 @@ export function StockMovementFormModal({
   const [movementType, setMovementType] = useState<StockMovementType>("entry");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
-  const [adjustmentIncrease, setAdjustmentIncrease] = useState(true);
   const [searching, setSearching] = useState(false);
+
+  const packageQuantity = Number(selectedProduct?.package_quantity ?? 0);
+  const currentQuantity = Number(selectedProduct?.current_quantity ?? 0);
+  const equivalentPackages = packageQuantity > 0 ? currentQuantity / packageQuantity : 0;
 
   const doSearch = useCallback(async () => {
     if (!search.trim()) {
@@ -78,25 +82,28 @@ export function StockMovementFormModal({
       setMovementType("entry");
       setQuantity("");
       setReason("");
-      setAdjustmentIncrease(true);
     }
   }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
-    const qty = parseInt(quantity, 10);
+    const qty = parseFloat(quantity.replace(",", "."));
     if (isNaN(qty) || qty <= 0) return;
-    await stockService.createMovement(companyId, {
-      product_id: selectedProduct.id,
-      movement_type: movementType,
-      quantity: qty,
-      reason: reason.trim() || undefined,
-      created_by: createdBy,
-      adjustment_increase: movementType === "adjustment" ? adjustmentIncrease : undefined,
-    });
-    await onSubmit();
-    onOpenChange(false);
+    try {
+      await stockService.createMovement(companyId, {
+        product_id: selectedProduct.id,
+        movement_type: movementType,
+        quantity: qty,
+        reason: reason.trim() || undefined,
+        created_by: createdBy,
+      });
+      await onSubmit();
+      onOpenChange(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível registrar a movimentação.";
+      toast.error(message);
+    }
   };
 
   return (
@@ -145,10 +152,21 @@ export function StockMovementFormModal({
               </div>
             )}
             {selectedProduct && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Selecionado: {selectedProduct.name} (min: {selectedProduct.minimum_stock}{" "}
-                {getUnitLabel(selectedProduct.unit)})
-              </p>
+              <div className="mt-1 text-xs text-muted-foreground space-y-1">
+                <p>
+                  Selecionado: {selectedProduct.name} (min: {selectedProduct.minimum_stock}{" "}
+                  {getUnitLabel(selectedProduct.unit_type)})
+                </p>
+                <p>
+                  Estoque atual: {selectedProduct.current_quantity} {getUnitLabel(selectedProduct.unit_type)}
+                </p>
+                {packageQuantity > 0 ? (
+                  <p>
+                    Equivalente: {equivalentPackages.toFixed(2)}{" "}
+                    {selectedProduct.package_type?.trim() || "embalagens"}
+                  </p>
+                ) : null}
+              </div>
             )}
           </div>
           <div>
@@ -166,40 +184,35 @@ export function StockMovementFormModal({
               </SelectContent>
             </Select>
           </div>
-          {movementType === "adjustment" && (
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="adj-direction"
-                  checked={adjustmentIncrease}
-                  onChange={() => setAdjustmentIncrease(true)}
-                />
-                <span className="text-sm">Adicionar ao estoque</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="adj-direction"
-                  checked={!adjustmentIncrease}
-                  onChange={() => setAdjustmentIncrease(false)}
-                />
-                <span className="text-sm">Remover do estoque</span>
-              </label>
-            </div>
-          )}
           <div>
             <Label htmlFor="qty">Quantidade *</Label>
             <Input
               id="qty"
               type="number"
-              min={1}
+              min="0.01"
+              step="0.01"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              placeholder="0"
+              placeholder={
+                movementType === "entry"
+                  ? `Embalagens (${selectedProduct?.package_type?.trim() || "unidades"})`
+                  : selectedProduct
+                  ? `Quantidade em ${getUnitLabel(selectedProduct.unit_type)}`
+                  : "Quantidade"
+              }
               required
               className="mt-1"
             />
+            {movementType === "entry" ? (
+              <p className="text-xs text-muted-foreground mt-1">
+                Entrada converte automaticamente embalagem para {getUnitLabel(selectedProduct?.unit_type ?? "unit")}.
+              </p>
+            ) : null}
+            {movementType === "adjustment" ? (
+              <p className="text-xs text-muted-foreground mt-1">
+                Ajuste redefine o estoque atual para o valor informado.
+              </p>
+            ) : null}
           </div>
           <div>
             <Label htmlFor="reason">Motivo</Label>

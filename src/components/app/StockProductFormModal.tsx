@@ -26,7 +26,10 @@ interface ProductFormValues {
   category: string;
   brand: string;
   description: string;
-  unit: StockUnit;
+  unit_type: StockUnit;
+  package_quantity: string;
+  package_type: string;
+  initial_packages: string;
   minimum_stock: string;
   image_url: string;
   cost_price: string;
@@ -48,7 +51,10 @@ const defaultValues: ProductFormValues = {
   category: "",
   brand: "",
   description: "",
-  unit: "unidade",
+  unit_type: "unit",
+  package_quantity: "1",
+  package_type: "",
+  initial_packages: "0",
   minimum_stock: "0",
   image_url: "",
   cost_price: "",
@@ -74,7 +80,10 @@ export function StockProductFormModal({
           category: product.category ?? "",
           brand: product.brand ?? "",
           description: product.description ?? "",
-          unit: product.unit,
+          unit_type: product.unit_type,
+          package_quantity: String(product.package_quantity ?? 1),
+          package_type: product.package_type ?? "",
+          initial_packages: "0",
           minimum_stock: String(product.minimum_stock),
           image_url: product.image_url ?? "",
           cost_price: product.cost_price != null ? String(product.cost_price) : "",
@@ -90,8 +99,12 @@ export function StockProductFormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!values.name.trim()) return;
-    const minStock = parseInt(values.minimum_stock, 10);
+    const minStock = parseFloat(values.minimum_stock);
     if (isNaN(minStock) || minStock < 0) return;
+    const packageQuantity = parseFloat(values.package_quantity);
+    if (isNaN(packageQuantity) || packageQuantity <= 0) return;
+    const initialPackages = parseFloat(values.initial_packages);
+    if (isNaN(initialPackages) || initialPackages < 0) return;
     await onSubmit(values);
     onOpenChange(false);
   };
@@ -151,8 +164,8 @@ export function StockProductFormModal({
             <div>
               <Label>Unidade de medida *</Label>
               <Select
-                value={values.unit}
-                onValueChange={(v) => setValues((prev) => ({ ...prev, unit: v as StockUnit }))}
+                value={values.unit_type}
+                onValueChange={(v) => setValues((prev) => ({ ...prev, unit_type: v as StockUnit }))}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
@@ -167,17 +180,57 @@ export function StockProductFormModal({
               </Select>
             </div>
             <div>
-              <Label htmlFor="minimum_stock">Estoque mínimo *</Label>
+              <Label htmlFor="package_quantity">Quantidade por embalagem *</Label>
               <Input
-                id="minimum_stock"
+                id="package_quantity"
                 type="number"
-                min={0}
-                value={values.minimum_stock}
-                onChange={(e) => setValues((v) => ({ ...v, minimum_stock: e.target.value }))}
+                step="0.01"
+                min={0.01}
+                value={values.package_quantity}
+                onChange={(e) => setValues((v) => ({ ...v, package_quantity: e.target.value }))}
                 required
                 className="mt-1"
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="package_type">Tipo de embalagem</Label>
+              <Input
+                id="package_type"
+                value={values.package_type}
+                onChange={(e) => setValues((v) => ({ ...v, package_type: e.target.value }))}
+                placeholder="Ex: Frasco, Pote, Caixa"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="initial_packages">Quantidade inicial comprada *</Label>
+              <Input
+                id="initial_packages"
+                type="number"
+                step="0.01"
+                min={0}
+                value={values.initial_packages}
+                onChange={(e) => setValues((v) => ({ ...v, initial_packages: e.target.value }))}
+                required
+                disabled={mode === "edit"}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="minimum_stock">Estoque mínimo *</Label>
+            <Input
+              id="minimum_stock"
+              type="number"
+              step="0.01"
+              min={0}
+              value={values.minimum_stock}
+              onChange={(e) => setValues((v) => ({ ...v, minimum_stock: e.target.value }))}
+              required
+              className="mt-1"
+            />
           </div>
           <div>
             <Label htmlFor="image_url">URL da imagem</Label>

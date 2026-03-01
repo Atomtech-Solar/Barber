@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Pencil, History, Package } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, History, Package, Trash2 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/hooks/useAuth";
 import { stockService, getUnitLabel } from "@/services/stock.service";
@@ -89,7 +89,10 @@ const AppStock = () => {
       category: string;
       brand: string;
       description: string;
-      unit: StockUnit;
+      unit_type: StockUnit;
+      package_quantity: string;
+      package_type: string;
+      initial_packages: string;
       minimum_stock: string;
       image_url: string;
       cost_price: string;
@@ -101,8 +104,11 @@ const AppStock = () => {
         category: values.category || undefined,
         brand: values.brand || undefined,
         description: values.description || undefined,
-        unit: values.unit,
-        minimum_stock: parseInt(values.minimum_stock, 10),
+        unit_type: values.unit_type,
+        package_quantity: parseFloat(values.package_quantity),
+        package_type: values.package_type || undefined,
+        initial_packages: parseFloat(values.initial_packages),
+        minimum_stock: parseFloat(values.minimum_stock),
         image_url: values.image_url || undefined,
         cost_price: values.cost_price ? parseFloat(values.cost_price) : undefined,
         sale_price: values.sale_price ? parseFloat(values.sale_price) : undefined,
@@ -126,7 +132,10 @@ const AppStock = () => {
         category: string;
         brand: string;
         description: string;
-        unit: StockUnit;
+        unit_type: StockUnit;
+        package_quantity: string;
+        package_type: string;
+        initial_packages: string;
         minimum_stock: string;
         image_url: string;
         cost_price: string;
@@ -139,8 +148,10 @@ const AppStock = () => {
         category: values.category || undefined,
         brand: values.brand || undefined,
         description: values.description || undefined,
-        unit: values.unit,
-        minimum_stock: parseInt(values.minimum_stock, 10),
+        unit_type: values.unit_type,
+        package_quantity: parseFloat(values.package_quantity),
+        package_type: values.package_type || undefined,
+        minimum_stock: parseFloat(values.minimum_stock),
         image_url: values.image_url || undefined,
         cost_price: values.cost_price ? parseFloat(values.cost_price) : undefined,
         sale_price: values.sale_price ? parseFloat(values.sale_price) : undefined,
@@ -153,6 +164,25 @@ const AppStock = () => {
     },
     onError: (e: Error) => toast.error(e.message || "Erro ao atualizar."),
   });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: (id: string) => stockService.deleteProduct(companyId, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stock-products"] });
+      setHistoryProduct(null);
+      setEditingProduct(null);
+      toast.success("Produto excluído!");
+    },
+    onError: (e: Error) => toast.error(e.message || "Erro ao excluir."),
+  });
+
+  const requestDeleteProduct = (product: StockProductWithQuantity) => {
+    const confirmed = window.confirm(
+      `Deseja excluir o produto "${product.name}"? Essa ação remove também o histórico de movimentações.`
+    );
+    if (!confirmed) return;
+    deleteProductMutation.mutate(product.id);
+  };
 
   const handleMovementSaved = () => {
     queryClient.invalidateQueries({ queryKey: ["stock-products"] });
@@ -256,10 +286,10 @@ const AppStock = () => {
                         {p.category ?? "—"}
                       </TableCell>
                       <TableCell>
-                        {p.current_quantity} {getUnitLabel(p.unit)}
+                        {p.current_quantity} {getUnitLabel(p.unit_type)}
                       </TableCell>
                       <TableCell>
-                        {p.minimum_stock} {getUnitLabel(p.unit)}
+                        {p.minimum_stock} {getUnitLabel(p.unit_type)}
                       </TableCell>
                       <TableCell>
                         <StockStatusBadge
@@ -294,6 +324,13 @@ const AppStock = () => {
                             <DropdownMenuItem onClick={() => setEditingProduct(p)}>
                               <Pencil size={14} className="mr-2" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => requestDeleteProduct(p)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 size={14} className="mr-2" />
+                              Excluir
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -353,6 +390,13 @@ const AppStock = () => {
                           <Pencil size={14} className="mr-2" />
                           Editar
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => requestDeleteProduct(p)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 size={14} className="mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -361,13 +405,13 @@ const AppStock = () => {
                     <div className="rounded-lg bg-muted/40 p-2">
                       <p className="text-xs text-muted-foreground">Estoque</p>
                       <p className="font-medium">
-                        {p.current_quantity} {getUnitLabel(p.unit)}
+                        {p.current_quantity} {getUnitLabel(p.unit_type)}
                       </p>
                     </div>
                     <div className="rounded-lg bg-muted/40 p-2">
                       <p className="text-xs text-muted-foreground">Mínimo</p>
                       <p className="font-medium">
-                        {p.minimum_stock} {getUnitLabel(p.unit)}
+                        {p.minimum_stock} {getUnitLabel(p.unit_type)}
                       </p>
                     </div>
                   </div>

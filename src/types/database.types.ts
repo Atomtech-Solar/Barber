@@ -152,7 +152,7 @@ export interface CompanyClient {
   updated_at: string;
 }
 
-export type StockUnit = 'unidade' | 'ml' | 'g' | 'frasco' | 'caixa';
+export type StockUnit = 'unit' | 'ml' | 'g';
 export type StockMovementType = 'entry' | 'usage' | 'sale' | 'adjustment';
 
 export interface StockProduct {
@@ -162,7 +162,10 @@ export interface StockProduct {
   category: string | null;
   brand: string | null;
   description: string | null;
-  unit: StockUnit;
+  unit_type: StockUnit;
+  current_quantity: number;
+  package_quantity: number;
+  package_type: string | null;
   minimum_stock: number;
   image_url: string | null;
   cost_price: number | null;
