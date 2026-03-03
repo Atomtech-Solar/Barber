@@ -28,6 +28,7 @@ const AppServices = lazy(() => import("./pages/app/AppServices"));
 const AppProfessionals = lazy(() => import("./pages/app/AppProfessionals"));
 const AppFinancial = lazy(() => import("./pages/app/AppFinancial"));
 const AppStock = lazy(() => import("./pages/app/AppStock"));
+const AppPayments = lazy(() => import("./pages/app/AppPayments"));
 const AppReports = lazy(() => import("./pages/app/AppReports"));
 import { ReportsGuard } from "./components/auth/ReportsGuard";
 const AppSettings = lazy(() => import("./pages/app/AppSettings"));
@@ -96,6 +97,8 @@ const App = () => (
                 <Route path="professionals" element={<AppProfessionals />} />
                 <Route path="financial" element={<AppFinancial />} />
                 <Route path="stock" element={<AppStock />} />
+                <Route path="payments" element={<AppPayments />} />
+                <Route path="commissions" element={<Navigate to="/app/payments" replace />} />
                 <Route
                   path="reports"
                   element={

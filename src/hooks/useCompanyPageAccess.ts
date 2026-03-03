@@ -11,6 +11,7 @@ export const APP_PAGE_KEYS = [
   "professionals",
   "financial",
   "stock",
+  "payments",
   "reports",
   "settings",
 ] as const;
@@ -24,6 +25,8 @@ function mapPathToPageKey(pathname: string): AppPageKey {
   if (pathname.startsWith("/app/professionals")) return "professionals";
   if (pathname.startsWith("/app/financial")) return "financial";
   if (pathname.startsWith("/app/stock")) return "stock";
+  if (pathname.startsWith("/app/payments")) return "payments";
+  if (pathname.startsWith("/app/commissions")) return "payments"; // legacy redirect
   if (pathname.startsWith("/app/reports")) return "reports";
   if (pathname.startsWith("/app/settings")) return "settings";
   return "dashboard";
@@ -52,7 +55,11 @@ export function useCompanyPageAccess() {
   const allowedPages: AppPageKey[] =
     isOwner || !data
       ? [...APP_PAGE_KEYS]
-      : APP_PAGE_KEYS.filter((key) => data.includes(key));
+      : APP_PAGE_KEYS.filter((key) => {
+          if (key === "payments")
+            return data.includes("payments") || data.includes("commissions");
+          return data.includes(key);
+        });
 
   const hasAccessToPage = (pageKey: AppPageKey) => allowedPages.includes(pageKey);
   const hasAccessToPath = (pathname: string) => hasAccessToPage(mapPathToPageKey(pathname));

@@ -8,7 +8,7 @@ import { applyCompanyTheme } from "@/lib/companyTheme";
 import {
   LayoutDashboard, Calendar, Users, Scissors, UserCheck, DollarSign,
   Package, BarChart3, Settings, Plus, ChevronLeft, Menu,
-  ChevronRight, LogOut
+  ChevronRight, LogOut, Percent
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +29,7 @@ const navItems = [
   { label: "Profissionais", icon: UserCheck, path: "/app/professionals", accessKey: "professionals" },
   { label: "Financeiro", icon: DollarSign, path: "/app/financial", accessKey: "financial" },
   { label: "Estoque", icon: Package, path: "/app/stock", accessKey: "stock" },
+  { label: "Pagamentos", icon: Percent, path: "/app/payments", accessKey: "payments" },
   { label: "Relatórios", icon: BarChart3, path: "/app/reports", accessKey: "reports" },
   { label: "Configurações", icon: Settings, path: "/app/settings", accessKey: "settings" },
 ];

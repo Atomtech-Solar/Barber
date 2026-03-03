@@ -208,3 +208,39 @@ export interface FinancialRecord {
   created_at: string;
   is_valid: boolean;
 }
+
+export interface ProfessionalPaymentSettings {
+  id: string;
+  company_id: string;
+  professional_id: string;
+  salario_fixo_mensal: number;
+  percentual_comissao_padrao: number;
+  fechamento_dia: number;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProfessionalServiceCommission {
+  id: string;
+  company_id: string;
+  professional_id: string;
+  service_id: string;
+  percentual: number;
+  created_at: string;
+}
+
+export interface MonthlyProfessionalSummary {
+  id: string;
+  company_id: string;
+  professional_id: string;
+  mes: string;
+  total_faturado: number;
+  ponto_equilibrio: number;
+  excedente: number;
+  total_comissao_excedente: number;
+  salario_fixo: number;
+  valor_final: number;
+  fechado: boolean;
+  created_at: string;
+}
