@@ -18,41 +18,76 @@ export interface SignInParams {
 
 export const authService = {
   async signUp(params: SignUpParams) {
-    const { data, error } = await supabase.auth.signUp({
-      email: params.email,
-      password: params.password,
-      options: {
-        data: {
-          full_name: params.fullName,
-          phone: params.phone ?? "",
-          role: params.role ?? "client",
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: params.email,
+        password: params.password,
+        options: {
+          data: {
+            full_name: params.fullName,
+            phone: params.phone ?? "",
+            role: params.role ?? "client",
+          },
         },
-      },
-    });
-    return { data, error };
-  },
-
-  async signIn(params: SignInParams) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: params.email,
-      password: params.password,
-    });
-    if (error || !data.user) {
+      });
       return { data, error };
-    }
-
-    const blocked = await this._isBlockedCompanyUser(data.user.id);
-    if (blocked) {
-      await supabase.auth.signOut();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isNetworkError =
+        msg.includes("Failed to fetch") ||
+        msg.includes("ERR_NAME_NOT_RESOLVED") ||
+        msg.includes("unreachable") ||
+        msg.includes("fetch");
       return {
         data: null,
         error: new Error(
-          "Empresa bloqueada pelo administrador. Entre em contato com o suporte da empresa."
+          isNetworkError
+            ? "Serviço temporariamente indisponível. Verifique sua conexão ou se o Supabase está ativo (projeto pode estar pausado)."
+            : msg
         ),
       };
     }
+  },
 
-    return { data, error };
+  async signIn(params: SignInParams) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: params.email,
+        password: params.password,
+      });
+      if (error || !data.user) {
+        return { data, error };
+      }
+
+      const blocked = await this._isBlockedCompanyUser(data.user.id);
+      if (blocked) {
+        await supabase.auth.signOut();
+        return {
+          data: null,
+          error: new Error(
+            "Empresa bloqueada pelo administrador. Entre em contato com o suporte da empresa."
+          ),
+        };
+      }
+
+      return { data, error };
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : String(err);
+      const isNetworkError =
+        msg.includes("Failed to fetch") ||
+        msg.includes("ERR_NAME_NOT_RESOLVED") ||
+        msg.includes("unreachable") ||
+        msg.includes("fetch");
+      return {
+        data: null,
+        error: new Error(
+          isNetworkError
+            ? "Serviço temporariamente indisponível. Verifique sua conexão ou se o Supabase está ativo (projeto pode estar pausado)."
+            : msg
+        ),
+      };
+    }
   },
 
   async signOut() {

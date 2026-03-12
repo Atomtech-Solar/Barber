@@ -34,6 +34,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 const PROFILE_LOAD_TIMEOUT_MS = 8000;
+const LOCK_RETRY_DELAY_MS = 600;
+const MAX_LOCK_RETRIES = 2;
+
+function isLockError(err: unknown): boolean {
+  if (!err) return false;
+  const msg =
+    err instanceof Error
+      ? err.message
+      : (err as { message?: string })?.message ?? String(err);
+  return msg.includes("Lock broken") || msg.includes("AbortError");
+}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -53,28 +64,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileLoadError, setProfileLoadError] = useState(false);
   const lastSessionId = useRef<string | null>(null);
 
-  const loadProfile = useCallback(async (userId: string) => {
-    setProfileLoadError(false);
-    const { data, error } = await authService.getProfile(userId);
-    if (error) {
-      if (import.meta.env.DEV) {
-        console.error("[AuthContext] Erro ao carregar perfil:", error);
+  const loadProfile = useCallback(
+    async (userId: string, retryCount = 0): Promise<void> => {
+      setProfileLoadError(false);
+      const { data, error } = await authService.getProfile(userId);
+      if (error && isLockError(error) && retryCount < MAX_LOCK_RETRIES) {
+        await new Promise((r) => setTimeout(r, LOCK_RETRY_DELAY_MS));
+        return loadProfile(userId, retryCount + 1);
       }
-      setProfile(null);
-      setProfileLoadError(true);
-      return;
-    }
-    if (!data) {
-      if (import.meta.env.DEV) {
-        console.warn("[AuthContext] Perfil não encontrado para userId:", userId);
+      if (error) {
+        if (import.meta.env.DEV && !isLockError(error)) {
+          console.error("[AuthContext] Erro ao carregar perfil:", error);
+        }
+        setProfile(null);
+        setProfileLoadError(true);
+        return;
       }
-      setProfile(null);
-      setProfileLoadError(true);
-      return;
-    }
-    // Owner não exige company_id; outros roles podem ter
-    setProfile(data);
-  }, []);
+      if (!data) {
+        if (import.meta.env.DEV) {
+          console.warn("[AuthContext] Perfil não encontrado para userId:", userId);
+        }
+        setProfile(null);
+        setProfileLoadError(true);
+        return;
+      }
+      setProfile(data);
+    },
+    []
+  );
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) {
@@ -112,16 +129,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const init = async () => {
+    const init = async (retryCount = 0) => {
       try {
         const { data, error } = await authService.getSession();
-        if (error && import.meta.env.DEV) {
+        if (error && isLockError(error) && retryCount < MAX_LOCK_RETRIES) {
+          await new Promise((r) => setTimeout(r, LOCK_RETRY_DELAY_MS));
+          return init(retryCount + 1);
+        }
+        if (error && import.meta.env.DEV && !isLockError(error)) {
           console.error("[AuthContext] Erro ao obter sessão:", error);
         }
         if (!mounted) return;
         await syncFromSession(data.session ?? null);
       } catch (error) {
-        if (import.meta.env.DEV) {
+        if (isLockError(error) && retryCount < MAX_LOCK_RETRIES) {
+          await new Promise((r) => setTimeout(r, LOCK_RETRY_DELAY_MS));
+          return init(retryCount + 1);
+        }
+        if (import.meta.env.DEV && !isLockError(error)) {
           console.error("[AuthContext] Falha na inicialização da sessão:", error);
         }
         if (!mounted) return;

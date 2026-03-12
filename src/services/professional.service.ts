@@ -75,6 +75,48 @@ export const professionalService = {
     return { data: result, error: null };
   },
 
+  /** Lista profissionais ativos com nomes dos serviços (para landing pública) */
+  async listByCompanyForSite(companyId: string) {
+    const { data: professionals, error: profError } = await supabase
+      .from("professionals")
+      .select(`
+        *,
+        professional_services(service_id)
+      `)
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .order("name");
+
+    if (profError) return { data: [], error: profError };
+    const items = (professionals ?? []) as Array<Professional & {
+      professional_services?: { service_id: string }[];
+    }>;
+
+    const serviceIds = [
+      ...new Set(
+        items.flatMap((p) => (p.professional_services ?? []).map((ps) => ps.service_id))
+      ),
+    ];
+    let serviceNamesById: Record<string, string> = {};
+    if (serviceIds.length > 0) {
+      const { data: services } = await supabase
+        .from("services")
+        .select("id, name")
+        .in("id", serviceIds);
+      serviceNamesById = Object.fromEntries(
+        ((services ?? []) as { id: string; name: string }[]).map((s) => [s.id, s.name])
+      );
+    }
+
+    const result = items.map((p) => ({
+      ...p,
+      serviceNames: (p.professional_services ?? [])
+        .map((ps) => serviceNamesById[ps.service_id])
+        .filter(Boolean),
+    }));
+    return { data: result, error: null };
+  },
+
   async getById(id: string) {
     const { data, error } = await supabase
       .from("professionals")

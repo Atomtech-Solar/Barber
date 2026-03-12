@@ -67,3 +67,43 @@ export function applyCompanyTheme(company: Company | null) {
   root.style.setProperty("--ring", primaryToken);
   root.style.setProperty("--sidebar-primary", primaryToken);
 }
+
+const SITE_THEME_STORAGE_KEY = "site-theme";
+
+/**
+ * Aplica o tema da empresa na landing pública.
+ * Usa cor primária e tema (dark/light) quando disponíveis para branding.
+ * Respeita preferência do usuário (localStorage) quando definida.
+ */
+export function applyCompanyThemeForSite(company: Company | null) {
+  const root = document.documentElement;
+  if (!company) {
+    root.classList.remove("light");
+    root.classList.add("dark");
+    root.style.removeProperty("--primary");
+    root.style.removeProperty("--ring");
+    root.style.removeProperty("--sidebar-primary");
+    return;
+  }
+
+  const stored = typeof window !== "undefined" ? localStorage.getItem(SITE_THEME_STORAGE_KEY) : null;
+  const themeMode =
+    stored === "dark" || stored === "light" ? stored : (company.dashboard_theme ?? "light");
+  const isLight = themeMode === "light";
+  root.classList.toggle("light", isLight);
+  root.classList.toggle("dark", !isLight);
+
+  const primaryHex =
+    company.dashboard_primary_color ??
+    (company.customization_enabled ? DEFAULT_PRIMARY : null);
+  if (primaryHex) {
+    const primaryToken = hexToHslToken(primaryHex);
+    root.style.setProperty("--primary", primaryToken);
+    root.style.setProperty("--ring", primaryToken);
+    root.style.setProperty("--sidebar-primary", primaryToken);
+  } else {
+    root.style.removeProperty("--primary");
+    root.style.removeProperty("--ring");
+    root.style.removeProperty("--sidebar-primary");
+  }
+}

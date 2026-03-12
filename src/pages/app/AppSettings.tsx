@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { useTenant } from "@/contexts/TenantContext";
 import { companyService } from "@/services/company.service";
 import { applyCompanyTheme } from "@/lib/companyTheme";
+import { ExternalLink, Copy, Globe } from "lucide-react";
 
 const DEFAULT_OPENING_TIME = "09:00";
 const DEFAULT_CLOSING_TIME = "19:00";
@@ -93,9 +94,52 @@ const AppSettings = () => {
     },
   });
 
+  const landingUrl =
+    typeof window !== "undefined" && currentCompany?.slug
+      ? `${window.location.origin}/site/${currentCompany.slug}`
+      : null;
+
+  const copyLandingUrl = () => {
+    if (!landingUrl) return;
+    void navigator.clipboard.writeText(landingUrl);
+    toast.success("Link copiado para a área de transferência.");
+  };
+
+  const openLanding = () => {
+    if (landingUrl) window.open(landingUrl, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <PageContainer title="Configurações" description="Configure sua empresa">
-      <div className="max-w-2xl space-y-8">
+      <div className="w-full space-y-8">
+        {landingUrl && (
+          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Globe className="text-primary" size={20} />
+              <h3 className="font-semibold">Landing Page</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Sua página pública onde clientes podem ver serviços, profissionais e agendar horários.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Input
+                readOnly
+                value={landingUrl}
+                className="font-mono text-sm bg-muted/50"
+              />
+              <div className="flex gap-2 shrink-0">
+                <Button variant="outline" size="icon" onClick={copyLandingUrl} title="Copiar link">
+                  <Copy size={18} />
+                </Button>
+                <Button onClick={openLanding} className="gap-2">
+                  <ExternalLink size={18} />
+                  Abrir landing page
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-card border border-border rounded-xl p-6 space-y-4">
           <h3 className="font-semibold">Dados da Empresa</h3>
           <p className="text-sm text-muted-foreground">
