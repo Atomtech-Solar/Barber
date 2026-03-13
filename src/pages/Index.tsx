@@ -1,7 +1,8 @@
+import { useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Scissors, Shield, Building2, User } from "lucide-react";
+import { Scissors, Shield, Building2, User, Globe, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { resetAppTheme } from "@/lib/companyTheme";
 
 const getDashboardByRole = (role: string) => {
   if (role === "owner") return "/owner/dashboard";
@@ -10,74 +11,130 @@ const getDashboardByRole = (role: string) => {
   return null;
 };
 
+interface OptionCardProps {
+  to: string;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}
+
+function OptionCard({ to, icon, title, description }: OptionCardProps) {
+  return (
+    <Link
+      to={to}
+      className="group flex items-center gap-4 p-5 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/30 transition-all duration-200 hover:shadow-lg hover:shadow-primary/5"
+    >
+      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0 text-left">
+        <p className="font-semibold text-foreground group-hover:text-primary transition-colors">
+          {title}
+        </p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0" />
+    </Link>
+  );
+}
+
+interface OptionCardDisabledProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}
+
+function OptionCardDisabled({ icon, title, description }: OptionCardDisabledProps) {
+  return (
+    <div className="flex items-center gap-4 p-5 rounded-xl border border-border bg-muted/30 opacity-70">
+      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center shrink-0">
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0 text-left">
+        <p className="font-semibold text-foreground">{title}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <span className="text-xs font-medium text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2.5 py-1 rounded-md shrink-0">
+        Em breve
+      </span>
+    </div>
+  );
+}
+
 const Index = () => {
   const { initialized, isAuthenticated, profile } = useAuth();
 
-  // Aguarda auth antes de decidir redirect (evita flash da tela de escolha)
+  useEffect(() => {
+    resetAppTheme();
+  }, []);
+
   if (!initialized) return null;
 
-  // Redireciona usuário autenticado para o painel correto
   if (isAuthenticated && profile?.role) {
     const dest = getDashboardByRole(profile.role);
     if (dest) return <Navigate to={dest} replace />;
   }
 
   return (
-  <div className="min-h-screen bg-background flex items-center justify-center p-6">
-    <div className="max-w-md w-full text-center space-y-8 animate-fade-in">
-      <div>
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <Scissors className="text-primary" size={32} />
-        </div>
-        <h1 className="text-4xl font-bold mb-2">brynex</h1>
-        <p className="text-muted-foreground">Plataforma SaaS para gestão de negócios de beleza</p>
-      </div>
-      <div className="space-y-3">
-        <Link to="/auth/login?returnTo=%2Fowner%2Fdashboard&loginOnly=1" className="block">
-          <Button variant="outline" className="w-full justify-start gap-3 h-14">
-            <Shield size={20} className="text-primary shrink-0" />
-            <div className="text-left">
-              <p className="font-medium">Painel Admin</p>
-              <p className="text-xs text-muted-foreground">Gestão da plataforma</p>
+    <div className="min-h-screen flex">
+      {/* Background com gradiente sutil */}
+      <div className="fixed inset-0 bg-gradient-to-br from-background via-background to-primary/5 -z-10" />
+      <div
+        className="fixed inset-0 opacity-[0.015] -z-10"
+        style={{
+          backgroundImage: `radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)`,
+          backgroundSize: "32px 32px",
+        }}
+      />
+
+      <div className="flex-1 flex items-center justify-center p-6 min-h-screen">
+        <div className="w-full max-w-lg animate-fade-in">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary/10 mb-6 ring-4 ring-primary/5">
+              <Scissors className="text-primary" size={40} strokeWidth={1.5} />
             </div>
-          </Button>
-        </Link>
-        <Link to="/auth/login?returnTo=%2Fapp&loginOnly=1" className="block">
-          <Button variant="outline" className="w-full justify-start gap-3 h-14">
-            <Building2 size={20} className="text-primary shrink-0" />
-            <div className="text-left">
-              <p className="font-medium">Dashboard Empresa</p>
-              <p className="text-xs text-muted-foreground">Gestão do negócio</p>
-            </div>
-          </Button>
-        </Link>
-        <div className="block relative">
-          <Button variant="outline" className="w-full justify-start gap-3 h-14 opacity-60 cursor-not-allowed" disabled>
-            <Scissors size={20} className="text-primary shrink-0" />
-            <div className="text-left">
-              <p className="font-medium">Landing Page</p>
-              <p className="text-xs text-muted-foreground">Página pública da empresa</p>
-            </div>
-          </Button>
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded">
-            futuro
-          </span>
-        </div>
-        <div className="block relative">
-          <Button variant="outline" className="w-full justify-start gap-3 h-14 opacity-60 cursor-not-allowed" disabled>
-            <User size={20} className="text-primary shrink-0" />
-            <div className="text-left">
-              <p className="font-medium">Área do Cliente</p>
-              <p className="text-xs text-muted-foreground">Agendamentos e perfil</p>
-            </div>
-          </Button>
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded">
-            futuro
-          </span>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-3">
+              brynex
+            </h1>
+            <p className="text-muted-foreground text-lg max-w-sm mx-auto">
+              Plataforma SaaS para gestão de negócios de beleza
+            </p>
+          </div>
+
+          {/* Opções */}
+          <div className="space-y-4">
+            <OptionCard
+              to="/auth/login?returnTo=%2Fowner%2Fdashboard&loginOnly=1"
+              icon={<Shield size={24} className="text-primary" />}
+              title="Painel Admin"
+              description="Gestão da plataforma"
+            />
+            <OptionCard
+              to="/auth/login?returnTo=%2Fapp&loginOnly=1"
+              icon={<Building2 size={24} className="text-primary" />}
+              title="Dashboard Empresa"
+              description="Gestão do negócio"
+            />
+            <OptionCardDisabled
+              icon={<Globe size={24} className="text-muted-foreground" />}
+              title="Landing Page"
+              description="Página pública da empresa"
+            />
+            <OptionCardDisabled
+              icon={<User size={24} className="text-muted-foreground" />}
+              title="Área do Cliente"
+              description="Agendamentos e perfil"
+            />
+          </div>
+
+          {/* Footer */}
+          <p className="text-center text-sm text-muted-foreground mt-10">
+            Escolha uma opção para continuar
+          </p>
         </div>
       </div>
     </div>
-  </div>
   );
 };
 

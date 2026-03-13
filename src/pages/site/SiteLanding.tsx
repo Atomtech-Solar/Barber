@@ -14,6 +14,7 @@ import {
   SiteNotFound,
 } from "@/components/site";
 import { companyService } from "@/services/company.service";
+import { companyLandingService } from "@/services/companyLanding.service";
 import { serviceService } from "@/services/service.service";
 import { professionalService } from "@/services/professional.service";
 import { useTenant } from "@/contexts/TenantContext";
@@ -37,6 +38,14 @@ const SiteLanding = () => {
 
   const company = companyData?.data ?? null;
   const companyId = company?.id ?? "";
+
+  const { data: landingSettingsData } = useQuery({
+    queryKey: ["company-landing-settings", companyId],
+    queryFn: () => companyLandingService.getByCompanyId(companyId),
+    enabled: !!companyId,
+  });
+
+  const landingSettings = landingSettingsData?.data ?? null;
 
   const { data: servicesData } = useQuery({
     queryKey: ["services-public", companyId],
@@ -62,10 +71,10 @@ const SiteLanding = () => {
 
   useEffect(() => {
     if (company) {
-      applyCompanyThemeForSite(company);
+      applyCompanyThemeForSite(company, landingSettings?.primary_color);
     }
     return () => applyCompanyThemeForSite(null);
-  }, [company]);
+  }, [company, landingSettings?.primary_color]);
 
   useSiteMeta({
     company,
@@ -94,12 +103,50 @@ const SiteLanding = () => {
     <SiteThemeProvider initialTheme={initialTheme}>
       <div className="min-h-screen bg-background">
         <SiteNavbar company={company} bookingUrl={bookingUrl} />
-        <SiteHero company={company} bookingUrl={bookingUrl} />
-        <SiteAbout company={company} />
+        <SiteHero
+          company={company}
+          bookingUrl={bookingUrl}
+          title={landingSettings?.hero_title}
+          subtitle={landingSettings?.hero_subtitle}
+          image={landingSettings?.hero_image_url}
+        />
+        <SiteAbout
+          company={company}
+          text={landingSettings?.about_text}
+          title={landingSettings?.about_title}
+          titleAccent={landingSettings?.about_title_accent}
+          images={[
+            landingSettings?.about_image_1_url ?? landingSettings?.about_image_url ?? null,
+            landingSettings?.about_image_2_url ?? null,
+            landingSettings?.about_image_3_url ?? null,
+            landingSettings?.about_image_4_url ?? null,
+          ]}
+        />
         <SiteServices services={services} bookingUrl={bookingUrl} />
         <SiteProfessionals professionals={professionals} />
-        <SiteGallery company={company} />
-        <SiteBookingCTA slug={slug} companyName={company.name} />
+        <SiteGallery
+          company={company}
+          images={
+            landingSettings
+              ? [
+                  landingSettings.gallery_image_1_url,
+                  landingSettings.gallery_image_2_url,
+                  landingSettings.gallery_image_3_url,
+                  landingSettings.gallery_image_4_url,
+                  landingSettings.gallery_image_5_url,
+                  landingSettings.gallery_image_6_url,
+                  landingSettings.gallery_image_7_url,
+                  landingSettings.gallery_image_8_url,
+                ]
+              : undefined
+          }
+        />
+        <SiteBookingCTA
+          slug={slug}
+          companyName={company.name}
+          ctaText={landingSettings?.cta_text}
+          buttonText={landingSettings?.cta_button_text}
+        />
         <SiteFooter company={company} />
       </div>
     </SiteThemeProvider>

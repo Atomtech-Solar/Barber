@@ -1,6 +1,41 @@
 export type UserRole = 'owner' | 'company_admin' | 'employee' | 'client';
 export type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'blocked' | 'no_show';
 
+/** Onde aplicar cor de destaque no título da seção Sobre */
+export type AboutTitleAccent = "first_word" | "last_word" | "all" | "none";
+
+export interface CompanyLandingSettings {
+  id: string;
+  company_id: string;
+  hero_title: string | null;
+  hero_subtitle: string | null;
+  hero_image_url: string | null;
+  about_text: string | null;
+  about_image_url: string | null;
+  /** Título customizado da seção Sobre */
+  about_title: string | null;
+  /** Onde aplicar cor em destaque: first_word | last_word | all | none */
+  about_title_accent: AboutTitleAccent | null;
+  about_image_1_url: string | null;
+  about_image_2_url: string | null;
+  about_image_3_url: string | null;
+  about_image_4_url: string | null;
+  gallery_image_1_url: string | null;
+  gallery_image_2_url: string | null;
+  gallery_image_3_url: string | null;
+  gallery_image_4_url: string | null;
+  gallery_image_5_url: string | null;
+  gallery_image_6_url: string | null;
+  gallery_image_7_url: string | null;
+  gallery_image_8_url: string | null;
+  cta_text: string | null;
+  cta_button_text: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Company {
   id: string;
   owner_id: string | null;

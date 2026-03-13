@@ -4,7 +4,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { RouteErrorBoundary } from "@/components/shared/RouteErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanyPageAccess } from "@/hooks/useCompanyPageAccess";
-import { applyCompanyTheme } from "@/lib/companyTheme";
+import { applyCompanyTheme, resetAppTheme } from "@/lib/companyTheme";
 import {
   LayoutDashboard, Calendar, Users, Scissors, UserCheck, DollarSign,
   Package, BarChart3, Settings, Plus, ChevronLeft, Menu,
@@ -45,6 +45,10 @@ const DashboardLayout = () => {
 
   useEffect(() => {
     applyCompanyTheme(currentCompany);
+    return () => {
+      // Ao desmontar (ex: sair para login), restaura tema padrão
+      resetAppTheme();
+    };
   }, [currentCompany]);
 
   const visibleNavItems = navItems.filter((item) => hasAccessToPage(item.accessKey));
@@ -94,7 +98,7 @@ const DashboardLayout = () => {
     });
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="fixed inset-0 flex bg-background overflow-hidden">
       <aside
         className={cn(
           "hidden md:flex flex-col border-r border-border bg-sidebar transition-all duration-300",
@@ -118,7 +122,7 @@ const DashboardLayout = () => {
         </nav>
       </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <header className="h-14 md:h-16 border-b border-border flex items-center justify-between px-3 md:px-6 bg-card shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -157,7 +161,7 @@ const DashboardLayout = () => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-3 md:p-6">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 md:p-6">
           {accessLoading ? (
             <div className="min-h-[200px] flex items-center justify-center">
               <div className="animate-pulse text-muted-foreground">Carregando acessos...</div>

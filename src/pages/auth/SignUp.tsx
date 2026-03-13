@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { resetAppTheme } from "@/lib/companyTheme";
 import { SignUpForm, type SignUpFormValues } from "@/components/auth/SignUpForm";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, Scissors } from "lucide-react";
@@ -11,6 +12,10 @@ export default function SignUp() {
   const returnTo = searchParams.get("returnTo") ?? "/client";
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    resetAppTheme();
+  }, []);
 
   const handleSubmit = async (values: SignUpFormValues) => {
     setError(null);

@@ -48,13 +48,22 @@ function hexToHslToken(hex: string): string {
   return `${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
+/**
+ * Restaura o tema padrão da aplicação. Deve ser chamado ao sair de
+ * contextos com tema customizado (dashboard empresa, landing).
+ */
+export function resetAppTheme() {
+  const root = document.documentElement;
+  root.classList.remove("light", "dark");
+  root.style.removeProperty("--primary");
+  root.style.removeProperty("--ring");
+  root.style.removeProperty("--sidebar-primary");
+}
+
 export function applyCompanyTheme(company: Company | null) {
   const root = document.documentElement;
   if (!company || !company.customization_enabled) {
-    root.classList.remove("light");
-    root.style.removeProperty("--primary");
-    root.style.removeProperty("--ring");
-    root.style.removeProperty("--sidebar-primary");
+    resetAppTheme();
     return;
   }
 
@@ -74,15 +83,15 @@ const SITE_THEME_STORAGE_KEY = "site-theme";
  * Aplica o tema da empresa na landing pública.
  * Usa cor primária e tema (dark/light) quando disponíveis para branding.
  * Respeita preferência do usuário (localStorage) quando definida.
+ * @param landingPrimaryColor - cor da tabela company_landing_settings (prioridade)
  */
-export function applyCompanyThemeForSite(company: Company | null) {
+export function applyCompanyThemeForSite(
+  company: Company | null,
+  landingPrimaryColor?: string | null
+) {
   const root = document.documentElement;
   if (!company) {
-    root.classList.remove("light");
-    root.classList.add("dark");
-    root.style.removeProperty("--primary");
-    root.style.removeProperty("--ring");
-    root.style.removeProperty("--sidebar-primary");
+    resetAppTheme();
     return;
   }
 
@@ -94,6 +103,7 @@ export function applyCompanyThemeForSite(company: Company | null) {
   root.classList.toggle("dark", !isLight);
 
   const primaryHex =
+    landingPrimaryColor ??
     company.dashboard_primary_color ??
     (company.customization_enabled ? DEFAULT_PRIMARY : null);
   if (primaryHex) {

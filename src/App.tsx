@@ -32,6 +32,7 @@ const AppPayments = lazy(() => import("./pages/app/AppPayments"));
 const AppReports = lazy(() => import("./pages/app/AppReports"));
 import { ReportsGuard } from "./components/auth/ReportsGuard";
 const AppSettings = lazy(() => import("./pages/app/AppSettings"));
+const LandingSettings = lazy(() => import("./pages/app/LandingSettings"));
 const SiteLanding = lazy(() => import("./pages/site/SiteLanding"));
 const ClientHome = lazy(() => import("./pages/client/ClientHome"));
 const ClientBooking = lazy(() => import("./pages/client/ClientBooking"));
@@ -107,6 +108,7 @@ const App = () => (
                     </ReportsGuard>
                   }
                 />
+                <Route path="settings/landing" element={<LandingSettings />} />
                 <Route path="settings" element={<AppSettings />} />
               </Route>
               <Route path="/site/:slug" element={<SiteLayout />}>

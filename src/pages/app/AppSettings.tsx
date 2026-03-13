@@ -9,7 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { useTenant } from "@/contexts/TenantContext";
 import { companyService } from "@/services/company.service";
 import { applyCompanyTheme } from "@/lib/companyTheme";
-import { ExternalLink, Copy, Globe } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ExternalLink, Copy, Globe, Layout } from "lucide-react";
 
 const DEFAULT_OPENING_TIME = "09:00";
 const DEFAULT_CLOSING_TIME = "19:00";
@@ -135,6 +136,12 @@ const AppSettings = () => {
                   <ExternalLink size={18} />
                   Abrir landing page
                 </Button>
+                <Link to="/app/settings/landing">
+                  <Button variant="secondary" className="gap-2">
+                    <Layout size={18} />
+                    Personalizar landing
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>

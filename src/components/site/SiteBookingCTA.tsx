@@ -5,10 +5,16 @@ import { Calendar } from "lucide-react";
 interface SiteBookingCTAProps {
   slug: string;
   companyName?: string;
+  /** Texto do CTA (fallback: "Agende seu horário agora") */
+  ctaText?: string | null;
+  /** Texto do botão (fallback: "Agendar agora") */
+  buttonText?: string | null;
 }
 
-export function SiteBookingCTA({ slug, companyName }: SiteBookingCTAProps) {
+export function SiteBookingCTA({ slug, companyName, ctaText, buttonText }: SiteBookingCTAProps) {
   const bookingUrl = `/client/booking?company=${slug}`;
+  const title = ctaText ?? "Agende seu horário agora";
+  const btnLabel = buttonText ?? "Agendar agora";
 
   return (
     <section
@@ -34,7 +40,7 @@ export function SiteBookingCTA({ slug, companyName }: SiteBookingCTAProps) {
         </div>
 
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight drop-shadow-sm">
-          Agende seu horário agora
+          {title}
         </h2>
 
         <p className="text-white/95 text-base md:text-lg max-w-xl mx-auto mb-10">
@@ -46,7 +52,7 @@ export function SiteBookingCTA({ slug, companyName }: SiteBookingCTAProps) {
             size="lg"
             className="text-lg font-semibold px-10 py-7 bg-white text-primary hover:bg-white/95 shadow-xl transition-all duration-300 ease-out hover:scale-105 hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/25 hover:ring-4 hover:ring-white/50"
           >
-            Agendar agora
+            {btnLabel}
           </Button>
         </Link>
       </div>

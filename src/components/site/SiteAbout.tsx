@@ -1,8 +1,10 @@
+import type React from "react";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import type { Company } from "@/types/database.types";
+import type { AboutTitleAccent } from "@/types/database.types";
 
-const ABOUT_GALLERY_IMAGES = [
+const ABOUT_GALLERY_DEFAULT = [
   "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=400",
   "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400",
   "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
@@ -11,18 +13,72 @@ const ABOUT_GALLERY_IMAGES = [
 
 interface SiteAboutProps {
   company: Company;
+  /** Texto descritivo da seção sobre */
+  text?: string | null;
+  /** Título customizado (fallback: company.slogan) */
+  title?: string | null;
+  /** Onde aplicar cor em destaque no título */
+  titleAccent?: AboutTitleAccent | null;
+  /** Imagens nas 4 posições (fallback: ABOUT_GALLERY_DEFAULT) */
+  images?: (string | null)[];
 }
 
-export function SiteAbout({ company }: SiteAboutProps) {
-  const smallTitle = company.name.toUpperCase();
-  const sloganParts = (company.slogan ?? "Seu estilo, nossa arte").split(/(\s+\S+$)/);
-  const largeTitleMain = sloganParts[0]?.trim() ?? "";
-  const largeTitleAccent = sloganParts[1]?.trim() ?? "";
+function renderTitleWithAccent(
+  title: string,
+  accent: AboutTitleAccent | null | undefined
+): React.ReactNode {
+  const words = title.trim().split(/\s+/);
+  if (!words.length) return null;
+  const accentMode = accent ?? "last_word";
 
-  const description =
+  if (accentMode === "none") {
+    return <span>{title}</span>;
+  }
+  if (accentMode === "all") {
+    return <span className="text-primary">{title}</span>;
+  }
+  if (accentMode === "first_word") {
+    return (
+      <>
+        <span className="text-primary">{words[0]}</span>
+        {words.length > 1 ? " " + words.slice(1).join(" ") : ""}
+      </>
+    );
+  }
+  // last_word
+  const last = words.pop() ?? "";
+  const rest = words.join(" ");
+  return (
+    <>
+      {rest ? rest + " " : ""}
+      <span className="text-primary">{last}</span>
+    </>
+  );
+}
+
+export function SiteAbout({
+  company,
+  text,
+  title,
+  titleAccent,
+  images,
+}: SiteAboutProps) {
+  const smallTitle = company.name.toUpperCase();
+  const defaultTitle = company.slogan ?? "Seu estilo, nossa arte";
+  const largeTitle = title ?? defaultTitle;
+
+  const defaultDescription =
     company.slogan
       ? `Na ${company.name}, cuidamos do seu visual com dedicação e profissionalismo. Nossa equipe está pronta para oferecer os melhores serviços. Agende online e transforme seu estilo.`
       : `${company.name} oferece os melhores serviços para cuidar do seu estilo. Ambiente aconchegante, profissionais qualificados e atendimento de excelência. Agende online e transforme seu visual com praticidade.`;
+  const description = text ?? defaultDescription;
+
+  const galleryImages: [string, string, string, string] = [
+    images?.[0] ?? ABOUT_GALLERY_DEFAULT[0],
+    images?.[1] ?? ABOUT_GALLERY_DEFAULT[1],
+    images?.[2] ?? ABOUT_GALLERY_DEFAULT[2],
+    images?.[3] ?? ABOUT_GALLERY_DEFAULT[3],
+  ].map((src, i) => src || ABOUT_GALLERY_DEFAULT[i]) as [string, string, string, string];
 
   const ownerName = company.owner_name ?? "Proprietário";
   const ownerRole = "Proprietário";
@@ -41,9 +97,9 @@ export function SiteAbout({ company }: SiteAboutProps) {
         {/* Coluna esquerda - galeria de fotos */}
         <div className="relative">
           <div className="grid grid-cols-2 gap-3 md:gap-4">
-            {ABOUT_GALLERY_IMAGES.map((src, i) => (
+            {galleryImages.map((src, i) => (
               <div
-                key={src}
+                key={`about-img-${i}`}
                 className="aspect-[4/3] rounded-xl overflow-hidden bg-muted"
               >
                 <img
@@ -68,7 +124,7 @@ export function SiteAbout({ company }: SiteAboutProps) {
           <div
             className="absolute inset-0 bg-cover bg-center scale-110 blur-xl opacity-30"
             style={{
-              backgroundImage: `url(${ABOUT_GALLERY_IMAGES[0]})`,
+              backgroundImage: `url(${galleryImages[0]})`,
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-br from-card/95 via-card/90 to-muted/95" />
@@ -81,14 +137,7 @@ export function SiteAbout({ company }: SiteAboutProps) {
 
             {/* Frase de efeito - título grande */}
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-tight mb-6">
-              {largeTitleAccent ? (
-                <>
-                  {largeTitleMain}{" "}
-                  <span className="text-primary">{largeTitleAccent}</span>
-                </>
-              ) : (
-                <span className="text-primary">{largeTitleMain}</span>
-              )}
+              {renderTitleWithAccent(largeTitle, titleAccent)}
             </h2>
 
             {/* Texto explicativo */}

@@ -9,20 +9,29 @@ const DEFAULT_HERO_IMAGE =
 interface SiteHeroProps {
   company: Company;
   bookingUrl: string;
+  /** Título customizado (fallback: company.name) */
+  title?: string | null;
+  /** Subtítulo customizado (fallback: company.slogan) */
+  subtitle?: string | null;
+  /** Imagem de fundo customizada */
+  image?: string | null;
 }
 
-export function SiteHero({ company, bookingUrl }: SiteHeroProps) {
+export function SiteHero({ company, bookingUrl, title, subtitle, image }: SiteHeroProps) {
   const logoUrl = company.logo_url ?? company.logo;
+  const heroTitle = title ?? company.name;
   const shortDescription =
+    subtitle ??
     company.slogan ??
     "Cuidamos do seu estilo com dedicação e profissionalismo. Agende online e transforme seu visual.";
+  const heroImage = image ?? DEFAULT_HERO_IMAGE;
 
   return (
     <header className="relative min-h-screen flex flex-col pt-16">
       {/* Background image com overlay escuro */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${DEFAULT_HERO_IMAGE})` }}
+        style={{ backgroundImage: `url(${heroImage})` }}
       />
       <div className="absolute inset-0 bg-background/70" />
 
@@ -45,7 +54,7 @@ export function SiteHero({ company, bookingUrl }: SiteHeroProps) {
 
         {/* Título principal */}
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 tracking-tight">
-          {company.name.toUpperCase()}
+          {heroTitle.toUpperCase()}
         </h1>
 
         {/* Texto descritivo curto */}

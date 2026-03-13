@@ -15,12 +15,15 @@ const DEFAULT_GALLERY_IMAGES = [
 
 interface SiteGalleryProps {
   company: Company;
-  /** URLs das imagens. Se vazio, usa imagens padrão. */
-  images?: string[];
+  /** URLs das imagens (8 posições). Valores vazios usam imagem padrão da posição. */
+  images?: (string | null | undefined)[];
 }
 
-export function SiteGallery({ company, images = DEFAULT_GALLERY_IMAGES }: SiteGalleryProps) {
-  const list = images.length > 0 ? images : DEFAULT_GALLERY_IMAGES;
+export function SiteGallery({ company, images }: SiteGalleryProps) {
+  const list =
+    images && images.some((u) => u && u.trim().length > 0)
+      ? images.map((url, i) => url && url.trim() ? url : DEFAULT_GALLERY_IMAGES[i] ?? DEFAULT_GALLERY_IMAGES[0])
+      : DEFAULT_GALLERY_IMAGES;
 
   return (
     <section
