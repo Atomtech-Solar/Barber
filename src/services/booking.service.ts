@@ -15,6 +15,20 @@ export interface CreateAppointmentParams {
   notes?: string;
 }
 
+/** Params para cliente criar agendamento público (walk-in, sem conta) */
+export interface CreateClientBookingParams {
+  company_id: string;
+  professional_id: string;
+  date: string;
+  start_time: string;
+  duration_minutes: number;
+  service_ids: string[];
+  client_name: string;
+  client_phone: string;
+  client_email?: string;
+  status?: Appointment["status"];
+}
+
 /** Params para admin criar agendamento (cliente walk-in, sem conta) */
 export interface CreateAdminAppointmentParams {
   company_id: string;
@@ -192,6 +206,72 @@ export const bookingService = {
     );
 
     return { data: deduped, error: null };
+  },
+
+  /**
+   * Cria agendamento pelo fluxo público (landing).
+   * Se client_id fornecido (usuário logado), usa create().
+   * Caso contrário, usa RPC create_public_appointment (walk-in).
+   */
+  async createClientBooking(params: CreateClientBookingParams, clientId?: string | null) {
+    if (clientId) {
+      return this.create({
+        company_id: params.company_id,
+        client_id: clientId,
+        professional_id: params.professional_id,
+        date: params.date,
+        start_time: params.start_time,
+        duration_minutes: params.duration_minutes,
+        service_ids: params.service_ids,
+        status: params.status ?? "confirmed",
+      });
+    }
+
+    const { data, error } = await supabase.rpc("create_public_appointment", {
+      p_company_id: params.company_id,
+      p_professional_id: params.professional_id,
+      p_date: params.date,
+      p_start_time: params.start_time,
+      p_duration_minutes: params.duration_minutes,
+      p_service_ids: params.service_ids,
+      p_client_name: params.client_name,
+      p_client_phone: params.client_phone,
+      p_client_email: params.client_email ?? null,
+    });
+
+    if (error) {
+      if (import.meta.env.DEV) {
+        console.error("[booking.service] create_public_appointment RPC error:", error);
+      }
+      return { data: null, error };
+    }
+
+    const result = data as { success?: boolean; error?: string; appointment_id?: string } | null;
+    if (!result?.success) {
+      const errMsg = result?.error ?? "Falha ao criar agendamento";
+      if (import.meta.env.DEV) {
+        console.error("[booking.service] create_public_appointment rejected:", errMsg);
+      }
+      return {
+        data: null,
+        error: new Error(errMsg),
+      };
+    }
+
+    // Walk-in: anon não consegue SELECT via RLS; retornamos objeto mínimo para UX
+    return {
+      data: {
+        id: result.appointment_id!,
+        company_id: params.company_id,
+        professional_id: params.professional_id,
+        date: params.date,
+        start_time: params.start_time,
+        duration_minutes: params.duration_minutes,
+        client_name: params.client_name,
+        client_phone: params.client_phone,
+      } as Appointment,
+      error: null,
+    };
   },
 
   async create(params: CreateAppointmentParams) {

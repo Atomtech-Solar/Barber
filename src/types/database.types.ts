@@ -147,6 +147,7 @@ export interface Appointment {
   /** Cliente walk-in (sem conta) */
   client_name: string | null;
   client_phone: string | null;
+  client_email?: string | null;
   professional_id: string;
   date: string;
   start_time: string;
