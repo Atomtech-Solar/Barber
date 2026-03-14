@@ -172,9 +172,45 @@ const ClientBookingInner = () => {
             signUpError?.message ?? "Falha ao criar conta. Tente novamente."
           );
         }
-        return bookingService.createClientBooking(payload, signUpData.user.id);
+
+        const session = signUpData.session;
+        if (session) {
+          const { supabase } = await import("@/lib/supabase");
+          await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          });
+        }
+
+        if (session && companyId) {
+          try {
+            const { clientService } = await import("@/services/client.service");
+            await clientService.linkUserToCompany(companyId, {
+              full_name: clientForm.name,
+              phone: clientForm.phone,
+              email: clientForm.email || undefined,
+            });
+          } catch (linkErr) {
+            if (import.meta.env.DEV) {
+              console.warn("[ClientBooking] linkUserToCompany:", linkErr);
+            }
+          }
+        }
+
+        if (session) {
+          return bookingService.createClientBooking(payload, signUpData.user.id);
+        }
+        return bookingService.createClientBooking(payload, null);
       }
 
+      if (user && companyId) {
+        const { clientService } = await import("@/services/client.service");
+        await clientService.linkUserToCompany(companyId, {
+          full_name: clientForm.name,
+          phone: clientForm.phone,
+          email: clientForm.email || undefined,
+        });
+      }
       return bookingService.createClientBooking(payload, user?.id ?? null);
     },
     onSuccess: (result) => {
@@ -189,6 +225,7 @@ const ClientBookingInner = () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-activity"] });
+      queryClient.invalidateQueries({ queryKey: ["clients", companyId] });
       setStep(6);
     },
     onError: (err: Error) => {

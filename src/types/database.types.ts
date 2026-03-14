@@ -73,6 +73,8 @@ export interface Profile {
   id: string;
   full_name: string;
   phone: string | null;
+  /** CPF opcional - cliente pode preencher no perfil */
+  cpf: string | null;
   role: UserRole;
   company_id: string | null;
   avatar_url: string | null;

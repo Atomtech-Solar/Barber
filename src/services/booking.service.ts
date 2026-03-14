@@ -12,7 +12,10 @@ export interface CreateAppointmentParams {
   duration_minutes: number;
   service_ids: string[];
   status?: "pending" | "confirmed" | "blocked";
-  notes?: string;
+  notes?: string | null;
+  client_name?: string;
+  client_phone?: string;
+  client_email?: string;
 }
 
 /** Params para cliente criar agendamento público (walk-in, sem conta) */
@@ -224,6 +227,9 @@ export const bookingService = {
         duration_minutes: params.duration_minutes,
         service_ids: params.service_ids,
         status: params.status ?? "confirmed",
+        client_name: params.client_name,
+        client_phone: params.client_phone,
+        client_email: params.client_email,
       });
     }
 
@@ -275,18 +281,23 @@ export const bookingService = {
   },
 
   async create(params: CreateAppointmentParams) {
+    const insert: Record<string, unknown> = {
+      company_id: params.company_id,
+      client_id: params.client_id,
+      professional_id: params.professional_id,
+      date: params.date,
+      start_time: params.start_time,
+      duration_minutes: params.duration_minutes,
+      status: params.status ?? "confirmed",
+      notes: params.notes ?? null,
+    };
+    if (params.client_name != null) insert.client_name = params.client_name;
+    if (params.client_phone != null) insert.client_phone = params.client_phone;
+    if (params.client_email != null) insert.client_email = params.client_email;
+
     const { data: apt, error: aptError } = await supabase
       .from("appointments")
-      .insert({
-        company_id: params.company_id,
-        client_id: params.client_id,
-        professional_id: params.professional_id,
-        date: params.date,
-        start_time: params.start_time,
-        duration_minutes: params.duration_minutes,
-        status: params.status ?? "confirmed",
-        notes: params.notes ?? null,
-      })
+      .insert(insert)
       .select()
       .single();
 

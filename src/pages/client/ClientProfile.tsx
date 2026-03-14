@@ -5,33 +5,55 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { maskCpf } from "@/lib/masks";
 import { ArrowLeft } from "lucide-react";
 
 const ClientProfile = () => {
   const { profile, user, signOut, refreshProfile } = useAuth();
   const { currentCompany } = useTenant();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     full_name: profile?.full_name ?? "",
     phone: profile?.phone ?? "",
+    cpf: profile?.cpf ?? "",
   });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (profile) {
-      setForm({ full_name: profile.full_name ?? "", phone: profile.phone ?? "" });
+      setForm({
+        full_name: profile.full_name ?? "",
+        phone: profile.phone ?? "",
+        cpf: profile.cpf ?? "",
+      });
     }
   }, [profile]);
 
   const handleSave = async () => {
     if (!user?.id) return;
     setSaving(true);
-    await supabase
-      .from("profiles")
-      .update({ full_name: form.full_name, phone: form.phone })
-      .eq("id", user.id);
+    const { data, error } = await supabase.rpc("update_my_profile", {
+      p_full_name: form.full_name.trim(),
+      p_phone: form.phone.trim() || null,
+      p_cpf: form.cpf.trim() || null,
+    });
+    if (error) {
+      console.error("[ClientProfile] update_my_profile error:", error);
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar. Tente novamente." });
+      setSaving(false);
+      return;
+    }
+    const res = data as { success?: boolean; error?: string } | null;
+    if (!res?.success) {
+      toast({ variant: "destructive", title: "Erro", description: res?.error ?? "Não foi possível salvar." });
+      setSaving(false);
+      return;
+    }
     await refreshProfile();
+    toast({ title: "Perfil atualizado", description: "Suas alterações foram salvas." });
     setSaving(false);
   };
 
@@ -59,6 +81,15 @@ const ClientProfile = () => {
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
             className="mt-1"
             placeholder="(11) 99999-0000"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>CPF (opcional)</Label>
+          <Input
+            value={form.cpf}
+            onChange={(e) => setForm((f) => ({ ...f, cpf: maskCpf(e.target.value) }))}
+            className="mt-1"
+            placeholder="000.000.000-00"
           />
         </div>
         <div className="flex flex-col sm:flex-row gap-3 pt-2">

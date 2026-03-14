@@ -151,6 +151,7 @@ export const authService = {
   _normalizeProfile(raw: Profile): Profile {
     return {
       ...raw,
+      cpf: raw.cpf ?? null,
       role: (String(raw.role ?? "").toLowerCase() || "client") as Profile["role"],
     };
   },
