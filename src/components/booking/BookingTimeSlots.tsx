@@ -12,7 +12,7 @@ export function BookingTimeSlots({
   onSelect,
 }: BookingTimeSlotsProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
       {slots.length === 0 ? (
         <p className="col-span-full py-4 text-center text-muted-foreground">
           Nenhum horário disponível nesta data

@@ -14,7 +14,7 @@ export function BookingProfessionalSelect({
   onSelect,
 }: BookingProfessionalSelectProps) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {professionals.map((pro) => {
         const selected = selectedId === pro.id;
         return (
@@ -23,7 +23,7 @@ export function BookingProfessionalSelect({
             type="button"
             onClick={() => onSelect(pro.id)}
             className={cn(
-              "flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all",
+              "flex w-full min-w-0 items-center gap-4 rounded-xl border-2 p-4 text-left transition-all",
               "touch-manipulation",
               selected
                 ? "border-primary bg-primary/5"

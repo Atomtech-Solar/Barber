@@ -16,18 +16,23 @@ const ClientAppointments = () => {
   const appointments = appointmentsData?.data ?? [];
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold">Meus Agendamentos</h1>
-      <div className="space-y-3">
-        {appointments.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">
+    <div className="space-y-6 md:space-y-8 animate-fade-in">
+      <h1 className="text-2xl md:text-3xl font-bold">Meus Agendamentos</h1>
+      {appointments.length === 0 ? (
+        <div className="bg-muted/30 border border-dashed border-border rounded-xl p-12 text-center">
+          <p className="text-muted-foreground">
             Nenhum agendamento encontrado
           </p>
-        ) : (
-          appointments.map((apt) => (
-            <div key={apt.id} className="bg-card border border-border rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold">
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {appointments.map((apt) => (
+            <div
+              key={apt.id}
+              className="bg-card border border-border rounded-xl p-4 hover:border-primary/20 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <span className="font-semibold text-sm sm:text-base">
                   {format(parseISO(apt.date), "d MMM yyyy", { locale: ptBR })} ·{" "}
                   {apt.start_time?.slice(0, 5)}
                 </span>
@@ -35,6 +40,7 @@ const ClientAppointments = () => {
                   variant={
                     apt.status === "confirmed" ? "default" : apt.status === "completed" ? "secondary" : "outline"
                   }
+                  className="shrink-0"
                 >
                   {apt.status === "confirmed"
                     ? "Confirmado"
@@ -47,9 +53,9 @@ const ClientAppointments = () => {
                 {apt.duration_minutes}min
               </p>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,10 +1,12 @@
-import { Calendar, Clock, Scissors, User } from "lucide-react";
+import { Calendar, Clock, Phone, Scissors, User, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BookingSummaryProps {
   companyName?: string;
   serviceName?: string;
   professionalName?: string;
+  clientName?: string;
+  clientPhone?: string;
   date?: string;
   time?: string;
   duration?: number;
@@ -17,6 +19,8 @@ export function BookingSummary({
   companyName,
   serviceName,
   professionalName,
+  clientName,
+  clientPhone,
   date,
   time,
   duration,
@@ -25,7 +29,7 @@ export function BookingSummary({
   compact = false,
 }: BookingSummaryProps) {
   const hasData =
-    companyName ?? serviceName ?? professionalName ?? date ?? time;
+    companyName ?? serviceName ?? professionalName ?? clientName ?? clientPhone ?? date ?? time;
 
   if (!hasData) return null;
 
@@ -38,7 +42,7 @@ export function BookingSummary({
     <div
       className={cn(
         "rounded-xl border border-border bg-card p-4",
-        compact && "p-3",
+        compact && "p-3 lg:p-4",
         className
       )}
     >
@@ -62,6 +66,18 @@ export function BookingSummary({
           <div className="flex items-center gap-2 text-sm">
             <User size={14} className="text-muted-foreground shrink-0" />
             <span className="truncate">{professionalName}</span>
+          </div>
+        )}
+        {clientName && (
+          <div className="flex items-center gap-2 text-sm">
+            <UserCircle size={14} className="text-muted-foreground shrink-0" />
+            <span className="truncate">{clientName}</span>
+          </div>
+        )}
+        {clientPhone && (
+          <div className="flex items-center gap-2 text-sm">
+            <Phone size={14} className="text-muted-foreground shrink-0" />
+            <span>{clientPhone}</span>
           </div>
         )}
         {date && (

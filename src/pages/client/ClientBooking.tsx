@@ -164,6 +164,8 @@ const ClientBookingInner = () => {
             fullName: clientForm.name,
             phone: clientForm.phone,
             role: "client",
+            company_name: currentCompany?.name,
+            company_slug: currentCompany?.slug,
           });
         if (signUpError || !signUpData?.user) {
           throw new Error(
@@ -244,7 +246,7 @@ const ClientBookingInner = () => {
 
   if (!initialized || tenantLoading) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center">
+      <div className="flex min-h-[200px] md:min-h-[280px] items-center justify-center">
         <div className="animate-pulse text-muted-foreground">
           Carregando...
         </div>
@@ -254,8 +256,8 @@ const ClientBookingInner = () => {
 
   if (!currentCompany) {
     return (
-      <div className="flex min-h-[200px] flex-col items-center justify-center gap-4">
-        <p className="text-center text-muted-foreground">
+      <div className="flex min-h-[200px] md:min-h-[280px] flex-col items-center justify-center gap-4 px-4 text-center">
+        <p className="text-muted-foreground max-w-md">
           Selecione uma empresa para agendar. Acesse pelo link de agendamento da
           empresa.
         </p>
@@ -269,20 +271,22 @@ const ClientBookingInner = () => {
   // Sucesso
   if (step === 6) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="flex flex-col items-center justify-center py-12 md:py-16 text-center max-w-md mx-auto">
         <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-500/20">
           <Check size={40} className="text-green-600" />
         </div>
-        <h2 className="text-xl font-bold">Agendamento confirmado!</h2>
+        <h2 className="text-xl md:text-2xl font-bold">Agendamento confirmado!</h2>
         <p className="mt-2 text-muted-foreground">
           Seu horário foi reservado com sucesso.
         </p>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Button onClick={() => navigate("/client/appointments")}>
-            Ver meus agendamentos
-          </Button>
+        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+          {user && (
+            <Button onClick={() => navigate("/client/appointments")}>
+              Ver meus agendamentos
+            </Button>
+          )}
           <Button
-            variant="outline"
+            variant={user ? "outline" : "default"}
             onClick={() => {
               setStep(0);
               setSelectedServices([]);
@@ -300,10 +304,10 @@ const ClientBookingInner = () => {
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-24 lg:flex-row lg:items-start lg:gap-8">
-      <div className="min-w-0 flex-1 space-y-6">
+    <div className="flex flex-col lg:grid lg:grid-cols-[1fr,minmax(280px,360px)] lg:gap-8 xl:gap-10 gap-6 pb-24 md:pb-8">
+      <div className="w-full space-y-6 min-w-0">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Agendar</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Agendar</h1>
           <p className="mt-1 text-muted-foreground">
             {currentCompany.name}
           </p>
@@ -339,7 +343,7 @@ const ClientBookingInner = () => {
 
         {/* Passo 1: Profissional */}
         {step === 1 && (
-          <div className="space-y-4 animate-fade-in">
+          <div className="w-full space-y-4 animate-fade-in">
             {prosLoading ? (
               <p className="text-muted-foreground">Carregando...</p>
             ) : professionals.length === 0 ? (
@@ -364,14 +368,16 @@ const ClientBookingInner = () => {
 
         {/* Passo 2: Data */}
         {step === 2 && (
-          <div className="space-y-4 animate-fade-in">
-            <BookingCalendar
-              selected={selectedDate}
-              onSelect={(d) => {
-                setSelectedDate(d);
-                setSelectedTime(null);
-              }}
-            />
+          <div className="w-full space-y-4 animate-fade-in">
+            <div className="w-full">
+                <BookingCalendar
+                selected={selectedDate}
+                onSelect={(d) => {
+                  setSelectedDate(d);
+                  setSelectedTime(null);
+                }}
+              />
+            </div>
             {selectedDate && (
               <Button
                 className="w-full"
@@ -430,6 +436,8 @@ const ClientBookingInner = () => {
               companyName={currentCompany.name}
               serviceName={selectedServiceNames}
               professionalName={selectedProName}
+              clientName={clientForm.name?.trim() || undefined}
+              clientPhone={clientForm.phone?.trim() || undefined}
               date={selectedDateStr}
               time={selectedTime ?? undefined}
               duration={totalDuration}
@@ -452,17 +460,19 @@ const ClientBookingInner = () => {
         )}
       </div>
 
-      {/* Resumo fixo lateral/inferior */}
+      {/* Resumo: mobile abaixo do conteúdo | desktop sticky à direita */}
       {step > 0 && step < 6 && (
-        <div className="lg:sticky lg:top-4 lg:w-80 shrink-0">
+        <div className="w-full shrink-0 lg:sticky lg:top-6 lg:self-start lg:order-2">
           <BookingSummary
             companyName={currentCompany.name}
-            serviceName={selectedServiceNames || undefined}
-            professionalName={selectedProName}
-            date={selectedDateStr || undefined}
-            time={selectedTime ?? undefined}
-            duration={totalDuration || undefined}
-            totalPrice={totalPrice}
+            serviceName={step >= 1 ? selectedServiceNames || undefined : undefined}
+            professionalName={step >= 2 ? selectedProName : undefined}
+            clientName={step >= 5 ? clientForm.name?.trim() || undefined : undefined}
+            clientPhone={step >= 5 ? clientForm.phone?.trim() || undefined : undefined}
+            date={step >= 3 ? selectedDateStr || undefined : undefined}
+            time={step >= 4 ? selectedTime ?? undefined : undefined}
+            duration={step >= 4 ? totalDuration : undefined}
+            totalPrice={step >= 4 ? totalPrice : undefined}
             compact
           />
         </div>

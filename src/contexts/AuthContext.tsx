@@ -27,6 +27,8 @@ interface AuthContextType {
     password: string;
     fullName: string;
     phone?: string;
+    company_name?: string;
+    company_slug?: string;
   }) => Promise<{ error: unknown }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -201,6 +203,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string;
     fullName: string;
     phone?: string;
+    company_name?: string;
+    company_slug?: string;
   }) => {
     const { error } = await authService.signUp({
       ...params,

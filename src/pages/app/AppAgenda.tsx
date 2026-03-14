@@ -451,18 +451,27 @@ const AppAgenda = () => {
                                   <div
                                     key={`${apt.id}-${slotTime}`}
                                     className={`rounded px-2 py-1 text-[10px] cursor-pointer transition-opacity hover:opacity-90 border truncate ${variant}`}
-                                    title={isConflict ? "Conflito de horário" : undefined}
+                                    title={
+                                      isConflict
+                                        ? "Conflito de horário"
+                                        : apt.client_phone
+                                          ? `${clientName} · ${apt.client_phone}`
+                                          : clientName
+                                    }
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setEditingId(apt.id);
                                     }}
                                   >
-                                    <p className="font-medium truncate" title={clientName}>
-                                      {clientName}
-                                    </p>
-                                    <p className="opacity-80 truncate" title={profName}>
+                                    <p className="font-medium truncate">{clientName}</p>
+                                    <p className="opacity-80 truncate">
                                       {profName} · {apt.duration_minutes}min
                                     </p>
+                                    {apt.client_phone && (
+                                      <p className="opacity-70 truncate text-[9px]">
+                                        {apt.client_phone}
+                                      </p>
+                                    )}
                                   </div>
                                 );
                               })
@@ -514,10 +523,21 @@ const AppAgenda = () => {
                         <button
                           key={`${apt.id}-${slotTime}-mobile`}
                           className={`w-full text-left rounded px-2 py-1 text-xs border transition-opacity hover:opacity-90 ${variant}`}
-                          title={isConflict ? "Conflito de horário" : undefined}
+                          title={
+                            isConflict
+                              ? "Conflito de horário"
+                              : apt.client_phone
+                                ? `${clientName} · ${apt.client_phone}`
+                                : clientName
+                          }
                           onClick={() => setEditingId(apt.id)}
                         >
                           <p className="font-medium truncate">{clientName}</p>
+                          {apt.client_phone && (
+                            <p className="opacity-80 truncate text-[10px]">
+                              {apt.client_phone}
+                            </p>
+                          )}
                           <p className="opacity-80 truncate">
                             {profName} · {apt.duration_minutes}min
                           </p>

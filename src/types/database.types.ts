@@ -179,6 +179,8 @@ export interface AppointmentWithDetails extends Appointment {
 export interface CompanyClient {
   id: string;
   company_id: string;
+  /** auth.users.id - vincula cliente autenticado à empresa (multi-tenant) */
+  user_id: string | null;
   full_name: string;
   phone: string | null;
   email: string | null;

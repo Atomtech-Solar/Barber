@@ -11,6 +11,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { maskPhone } from "@/lib/masks";
 
 const schema = z.object({
   fullName: z.string().min(2, "Nome deve ter ao menos 2 caracteres"),
@@ -73,7 +74,11 @@ export function SignUpForm({ onSubmit, isLoading }: SignUpFormProps) {
             <FormItem>
               <FormLabel>Telefone (opcional)</FormLabel>
               <FormControl>
-                <Input placeholder="(11) 99999-0000" {...field} />
+                <Input
+                  placeholder="(11) 99999-0000"
+                  {...field}
+                  onChange={(e) => field.onChange(maskPhone(e.target.value))}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

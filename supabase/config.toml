@@ -21,3 +21,13 @@ port = 54323
 [inbucket]
 enabled = true
 port = 54324
+
+# Auth: emails e tokens
+[auth.email]
+# Validade do link de confirmação em segundos (2592000 = 30 dias, sem limite prático)
+otp_expiry = 2592000
+
+# Template de email de confirmação personalizado (por empresa)
+[auth.email.template.confirmation]
+subject = "Confirmar seu cadastro"
+content_path = "./supabase/templates/confirmation.html"

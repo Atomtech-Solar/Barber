@@ -9,6 +9,10 @@ export interface SignUpParams {
   fullName: string;
   phone?: string;
   role?: "client" | "company_admin" | "employee";
+  /** Nome da empresa - usado no template de email de confirmação */
+  company_name?: string;
+  /** Slug da empresa - usado no template de email de confirmação */
+  company_slug?: string;
 }
 
 export interface SignInParams {
@@ -27,6 +31,8 @@ export const authService = {
             full_name: params.fullName,
             phone: params.phone ?? "",
             role: params.role ?? "client",
+            company_name: params.company_name ?? "",
+            company_slug: params.company_slug ?? "",
           },
         },
       });

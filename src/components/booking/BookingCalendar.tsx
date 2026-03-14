@@ -19,13 +19,15 @@ export function BookingCalendar({ selected, onSelect }: BookingCalendarProps) {
   };
 
   return (
-    <Calendar
-      mode="single"
-      selected={selected}
-      onSelect={onSelect}
-      disabled={disabledDays}
-      locale={ptBR}
-      className="rounded-xl border bg-card p-3"
-    />
+    <div className="flex w-full justify-center">
+      <Calendar
+        mode="single"
+        selected={selected}
+        onSelect={onSelect}
+        disabled={disabledDays}
+        locale={ptBR}
+        className="rounded-xl border bg-card p-3"
+      />
+    </div>
   );
 }

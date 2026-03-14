@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { maskPhone } from "@/lib/masks";
 import { cn } from "@/lib/utils";
 
 export interface ClientFormData {
@@ -47,7 +47,7 @@ export function BookingClientForm({
           type="tel"
           placeholder="(11) 99999-9999"
           value={value.phone}
-          onChange={(e) => update({ phone: e.target.value })}
+          onChange={(e) => update({ phone: maskPhone(e.target.value) })}
           className="h-12 text-base"
         />
       </div>

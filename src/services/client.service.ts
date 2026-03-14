@@ -87,4 +87,25 @@ export const clientService = {
     const { error } = await supabase.from("company_clients").delete().eq("id", id);
     return { error };
   },
+
+  /**
+   * Vincula o usuário autenticado à empresa (após criar conta pela landing).
+   * Multi-tenant: cada empresa tem seus próprios clientes.
+   */
+  async linkUserToCompany(
+    companyId: string,
+    params: { full_name: string; phone?: string; email?: string }
+  ) {
+    const { data, error } = await supabase.rpc("register_client_for_company", {
+      p_company_id: companyId,
+      p_full_name: params.full_name,
+      p_phone: params.phone ?? null,
+      p_email: params.email ?? null,
+    });
+
+    if (error) return { success: false, error };
+    const res = data as { success?: boolean; error?: string; client_id?: string } | null;
+    if (!res?.success) return { success: false, error: res?.error ?? "Erro ao vincular" };
+    return { success: true };
+  },
 };
