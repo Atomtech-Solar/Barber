@@ -4,11 +4,12 @@ import { Play } from "lucide-react";
 import type { Company } from "@/types/database.types";
 import type { AboutTitleAccent } from "@/types/database.types";
 
+/** Imagens padrão em cores neutras para seção Sobre */
 const ABOUT_GALLERY_DEFAULT = [
-  "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=400",
-  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400",
-  "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
-  "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=400",
+  "https://placehold.co/600x600/e5e7eb/9ca3af?text=1",
+  "https://placehold.co/600x600/e5e7eb/9ca3af?text=2",
+  "https://placehold.co/600x600/e5e7eb/9ca3af?text=3",
+  "https://placehold.co/600x600/e5e7eb/9ca3af?text=4",
 ];
 
 interface SiteAboutProps {

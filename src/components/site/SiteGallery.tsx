@@ -1,16 +1,16 @@
 import { Scissors } from "lucide-react";
 import type { Company } from "@/types/database.types";
 
-/** Imagens padrão da galeria (trabalhos realizados). No futuro: carregar do company.gallery_images ou tabela gallery. */
+/** Imagens padrão em cores neutras para galeria (trabalhos realizados) */
 const DEFAULT_GALLERY_IMAGES = [
-  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400",
-  "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
-  "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=400",
-  "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=400",
-  "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400",
-  "https://images.unsplash.com/photo-1493256338650-d82f7acb2b38?w=400",
-  "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400",
-  "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400",
+  "https://placehold.co/400x400/e5e7eb/9ca3af?text=1",
+  "https://placehold.co/400x400/e5e7eb/9ca3af?text=2",
+  "https://placehold.co/400x400/e5e7eb/9ca3af?text=3",
+  "https://placehold.co/400x400/e5e7eb/9ca3af?text=4",
+  "https://placehold.co/400x400/e5e7eb/9ca3af?text=5",
+  "https://placehold.co/400x400/e5e7eb/9ca3af?text=6",
+  "https://placehold.co/400x400/e5e7eb/9ca3af?text=7",
+  "https://placehold.co/400x400/e5e7eb/9ca3af?text=8",
 ];
 
 interface SiteGalleryProps {

@@ -11,8 +11,10 @@ export interface SignUpParams {
   role?: "client" | "company_admin" | "employee";
   /** Nome da empresa - usado no template de email de confirmação */
   company_name?: string;
-  /** Slug da empresa - usado no template de email de confirmação */
+  /** Slug da empresa - usado no template de email e para vincular ao profile */
   company_slug?: string;
+  /** ID da empresa - para setar company_id no profile (aparece na dashboard) */
+  company_id?: string;
 }
 
 export interface SignInParams {
@@ -33,6 +35,7 @@ export const authService = {
             role: params.role ?? "client",
             company_name: params.company_name ?? "",
             company_slug: params.company_slug ?? "",
+            company_id: params.company_id ?? "",
           },
         },
       });

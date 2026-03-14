@@ -37,6 +37,7 @@ export interface CreateAdminAppointmentParams {
   company_id: string;
   client_name: string;
   client_phone: string;
+  client_email?: string;
   professional_id: string;
   date: string;
   start_time: string;
@@ -107,7 +108,49 @@ export const bookingService = {
       .eq("client_id", clientId)
       .order("date", { ascending: false })
       .order("start_time");
-    return { data: data ?? [], error };
+    return { data: (data ?? []) as Appointment[], error };
+  },
+
+  /** Lista agendamentos do cliente: próximos (futuros/ativos) e histórico */
+  async listMyAppointments(userId: string) {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("*")
+      .eq("client_id", userId)
+      .order("date", { ascending: false })
+      .order("start_time", { ascending: false });
+    if (error) return { upcoming: [], history: [], error };
+
+    const all = (data ?? []) as Appointment[];
+    const isUpcoming = (a: Appointment) => {
+      if (["cancelled", "completed"].includes(a.status ?? "")) return false;
+      if (a.date > today) return true;
+      if (a.date === today) {
+        const start = (a.start_time ?? "00:00").slice(0, 5);
+        return start >= nowTime;
+      }
+      return false;
+    };
+    const upcoming = all.filter(isUpcoming);
+    const history = all.filter((a) => !isUpcoming(a));
+    return { upcoming, history, error: null };
+  },
+
+  /** Verifica se pode cancelar (até 2h antes) */
+  canCancel(appointment: { date: string; start_time?: string | null }) {
+    const aptStart = new Date(`${appointment.date}T${(appointment.start_time ?? "00:00").slice(0, 5)}`);
+    const twoHoursBefore = new Date(aptStart.getTime() - 2 * 60 * 60 * 1000);
+    return new Date() < twoHoursBefore;
+  },
+
+  /** Verifica se pode reagendar (não passou, status ativo) */
+  canReschedule(appointment: { date: string; start_time?: string | null; status?: string | null }) {
+    if (["cancelled", "completed"].includes(appointment.status ?? "")) return false;
+    const aptStart = new Date(`${appointment.date}T${(appointment.start_time ?? "00:00").slice(0, 5)}`);
+    return new Date() < aptStart;
   },
 
   async listByProfessionalAndDate(professionalId: string, date: string) {
@@ -301,7 +344,15 @@ export const bookingService = {
       .select()
       .single();
 
-    if (aptError) return { data: null, error: aptError };
+    if (aptError) {
+      if (aptError.code === "23505") {
+        return {
+          data: null,
+          error: new Error("Horário indisponível. Outro cliente acabou de agendar."),
+        };
+      }
+      return { data: null, error: aptError };
+    }
 
     if (params.service_ids.length > 0) {
       await supabase.from("appointment_services").insert(
@@ -313,6 +364,10 @@ export const bookingService = {
     }
 
     return { data: apt as Appointment, error: null };
+  },
+
+  async cancel(id: string) {
+    return this.updateStatus(id, "cancelled");
   },
 
   async updateStatus(id: string, status: Appointment["status"]) {
@@ -365,25 +420,48 @@ export const bookingService = {
   },
 
   async createAdmin(params: CreateAdminAppointmentParams) {
+    let companyClientId: string | null = null;
+    if (params.client_phone?.trim()) {
+      const { data: ccId } = await supabase.rpc("get_or_create_company_client", {
+        p_company_id: params.company_id,
+        p_full_name: params.client_name.trim(),
+        p_phone: params.client_phone.trim(),
+        p_email: params.client_email?.trim() || null,
+      });
+      companyClientId = ccId as string | null;
+    }
+
+    const insertPayload = {
+      company_id: params.company_id,
+      client_id: null,
+      company_client_id: companyClientId,
+      client_name: params.client_name,
+      client_phone: params.client_phone,
+      client_email: params.client_email || null,
+      professional_id: params.professional_id,
+      date: params.date,
+      start_time: params.start_time,
+      duration_minutes: params.duration_minutes,
+      status: params.status ?? "confirmed",
+      notes: params.notes ?? null,
+      created_by: params.created_by,
+    };
+
     const { data: apt, error: aptError } = await supabase
       .from("appointments")
-      .insert({
-        company_id: params.company_id,
-        client_id: null,
-        client_name: params.client_name,
-        client_phone: params.client_phone,
-        professional_id: params.professional_id,
-        date: params.date,
-        start_time: params.start_time,
-        duration_minutes: params.duration_minutes,
-        status: params.status ?? "confirmed",
-        notes: params.notes ?? null,
-        created_by: params.created_by,
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
-    if (aptError) return { data: null, error: aptError };
+    if (aptError) {
+      if (aptError.code === "23505") {
+        return {
+          data: null,
+          error: new Error("Horário indisponível. Outro cliente acabou de agendar."),
+        };
+      }
+      return { data: null, error: aptError };
+    }
 
     if (params.service_ids?.length) {
       await supabase.from("appointment_services").insert(
@@ -450,7 +528,15 @@ export const bookingService = {
       .select()
       .single();
 
-    if (aptError) return { data: null, error: aptError };
+    if (aptError) {
+      if (aptError.code === "23505") {
+        return {
+          data: null,
+          error: new Error("Horário indisponível. Outro cliente acabou de agendar."),
+        };
+      }
+      return { data: null, error: aptError };
+    }
 
     if (params.service_ids !== undefined) {
       await supabase.from("appointment_services").delete().eq("appointment_id", id);

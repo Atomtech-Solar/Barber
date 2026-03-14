@@ -29,6 +29,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import type { CompanyClientWithVisitCount } from "@/services/client.service";
 import { ClientFormModal } from "@/components/app/ClientFormModal";
@@ -41,13 +43,14 @@ const AppClients = () => {
   const [editingClient, setEditingClient] = useState<CompanyClientWithVisitCount | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const { data: clientsData } = useQuery({
+  const { data: clientsData, error: listError, isLoading: listLoading } = useQuery({
     queryKey: ["clients", companyId],
     queryFn: () => clientService.listByCompany(companyId),
     enabled: !!companyId,
   });
 
   const clients = clientsData?.data ?? [];
+  const hasListError = !!listError || !!clientsData?.error;
 
   const createMutation = useMutation({
     mutationFn: (v: { full_name: string; phone: string; email: string; cpf: string; notes: string }) =>
@@ -98,12 +101,22 @@ const AppClients = () => {
         title="Clientes"
         description="Cadastre e gerencie os clientes da empresa"
         actions={
-          <Button onClick={() => setModalOpen(true)}>
+          <Button onClick={() => setModalOpen(true)} disabled={!companyId}>
             <Plus size={16} className="mr-2" />
             Adicionar cliente
           </Button>
         }
       >
+        {!companyId && (
+          <p className="text-sm text-muted-foreground mb-4">
+            Selecione uma empresa para ver os clientes.
+          </p>
+        )}
+        {hasListError && (
+          <p className="text-sm text-destructive mb-4">
+            Erro ao carregar clientes: {(listError as Error)?.message ?? clientsData?.error?.message}
+          </p>
+        )}
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
@@ -111,16 +124,25 @@ const AppClients = () => {
                 <TableHead>Nome</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>E-mail</TableHead>
-                <TableHead>CPF</TableHead>
                 <TableHead>Visitas</TableHead>
+                <TableHead>Último atendimento</TableHead>
+                <TableHead>CPF</TableHead>
                 <TableHead className="w-[50px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clients.length === 0 ? (
+              {listLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
-                    Nenhum cliente cadastrado. Clique em "Adicionar cliente" para começar.
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                    Carregando clientes...
+                  </TableCell>
+                </TableRow>
+              ) : clients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                    {companyId
+                      ? "Nenhum cliente cadastrado. Clique em \"Adicionar cliente\" para começar."
+                      : "Selecione uma empresa acima para ver os clientes."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -129,8 +151,13 @@ const AppClients = () => {
                     <TableCell className="font-medium">{c.full_name}</TableCell>
                     <TableCell className="text-muted-foreground">{c.phone ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{c.email ?? "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{c.cpf ?? "—"}</TableCell>
                     <TableCell>{c.visit_count}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {c.last_visit
+                        ? format(parseISO(c.last_visit), "d MMM yyyy", { locale: ptBR })
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{c.cpf ?? "—"}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

@@ -31,3 +31,7 @@ otp_expiry = 2592000
 [auth.email.template.confirmation]
 subject = "Confirmar seu cadastro"
 content_path = "./supabase/templates/confirmation.html"
+
+# Edge Functions: create-client-account permite cadastro sem JWT (usuário não autenticado)
+[functions.create-client-account]
+verify_jwt = false

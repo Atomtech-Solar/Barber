@@ -31,6 +31,15 @@ import { companyLandingService } from "@/services/companyLanding.service";
 import { LandingImageUpload } from "@/components/landing/LandingImageUpload";
 import { ArrowLeft, Copy, ExternalLink } from "lucide-react";
 
+/** Textos e imagens padrão ao criar landing (cores neutras + placeholders) */
+const LOREM_HALF =
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+const LOREM_SHORT = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.";
+const PLACEHOLDER_TITLE = "Aqui você escreve um título";
+const NEUTRAL_HERO = "https://placehold.co/1920x1080/e5e7eb/9ca3af?text=Imagem+de+destaque";
+const NEUTRAL_IMG = (n: number) =>
+  `https://placehold.co/600x600/e5e7eb/9ca3af?text=${n}`;
+
 const ABOUT_ACCENT_OPTIONS = [
   { value: "first_word", label: "Primeira palavra" },
   { value: "last_word", label: "Última palavra" },
@@ -146,26 +155,26 @@ export default function LandingSettings() {
       });
     } else if (currentCompany) {
       form.reset({
-        hero_title: currentCompany.name,
-        hero_subtitle: currentCompany.slogan ?? "",
-        hero_image_url: null,
-        about_text: "",
-        about_image_url: null,
-        about_title: currentCompany.slogan ?? "",
+        hero_title: PLACEHOLDER_TITLE,
+        hero_subtitle: LOREM_HALF,
+        hero_image_url: NEUTRAL_HERO,
+        about_text: LOREM_HALF,
+        about_image_url: NEUTRAL_IMG(0),
+        about_title: PLACEHOLDER_TITLE,
         about_title_accent: "last_word",
-        about_image_1_url: null,
-        about_image_2_url: null,
-        about_image_3_url: null,
-        about_image_4_url: null,
-        gallery_image_1_url: null,
-        gallery_image_2_url: null,
-        gallery_image_3_url: null,
-        gallery_image_4_url: null,
-        gallery_image_5_url: null,
-        gallery_image_6_url: null,
-        gallery_image_7_url: null,
-        gallery_image_8_url: null,
-        cta_text: "Agende seu horário agora",
+        about_image_1_url: NEUTRAL_IMG(1),
+        about_image_2_url: NEUTRAL_IMG(2),
+        about_image_3_url: NEUTRAL_IMG(3),
+        about_image_4_url: NEUTRAL_IMG(4),
+        gallery_image_1_url: NEUTRAL_IMG(1),
+        gallery_image_2_url: NEUTRAL_IMG(2),
+        gallery_image_3_url: NEUTRAL_IMG(3),
+        gallery_image_4_url: NEUTRAL_IMG(4),
+        gallery_image_5_url: NEUTRAL_IMG(5),
+        gallery_image_6_url: NEUTRAL_IMG(6),
+        gallery_image_7_url: NEUTRAL_IMG(7),
+        gallery_image_8_url: NEUTRAL_IMG(8),
+        cta_text: LOREM_SHORT,
         cta_button_text: "Agendar agora",
         primary_color: "",
         secondary_color: "",
@@ -301,7 +310,7 @@ export default function LandingSettings() {
                     <FormItem>
                       <FormLabel>Título</FormLabel>
                       <FormControl>
-                        <Input placeholder={currentCompany.name} {...field} />
+                        <Input placeholder={PLACEHOLDER_TITLE} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -315,7 +324,7 @@ export default function LandingSettings() {
                       <FormLabel>Subtítulo</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder={currentCompany.slogan ?? "Descrição breve"}
+                          placeholder={LOREM_SHORT}
                           rows={2}
                           {...field}
                         />
@@ -364,7 +373,7 @@ export default function LandingSettings() {
                       <FormLabel>Título da seção</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder={currentCompany.slogan ?? "Seu estilo, nossa arte"}
+                          placeholder={PLACEHOLDER_TITLE}
                           {...field}
                         />
                       </FormControl>
@@ -407,7 +416,7 @@ export default function LandingSettings() {
                       <FormLabel>Texto descritivo</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Descrição da empresa e serviços..."
+                          placeholder={LOREM_HALF}
                           rows={4}
                           {...field}
                         />
@@ -520,7 +529,7 @@ export default function LandingSettings() {
                     <FormItem>
                       <FormLabel>Texto</FormLabel>
                       <FormControl>
-                        <Input placeholder="Agende seu horário agora" {...field} />
+                        <Input placeholder={LOREM_SHORT} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -2,14 +2,24 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { resetAppTheme } from "@/lib/companyTheme";
 import { SignUpForm, type SignUpFormValues } from "@/components/auth/SignUpForm";
-import { useAuth } from "@/hooks/useAuth";
+import { createClientAccount } from "@/services/clientAccount.service";
+import { supabase } from "@/lib/supabase";
 import { ArrowLeft, Scissors } from "lucide-react";
 
 export default function SignUp() {
-  const { signUp } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get("returnTo") ?? "/client";
+  const companySlug =
+    searchParams.get("company") ??
+    (() => {
+      try {
+        const m = returnTo.match(/company=([^&]+)/);
+        return m ? decodeURIComponent(m[1]) : null;
+      } catch {
+        return null;
+      }
+    })();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -20,19 +30,40 @@ export default function SignUp() {
   const handleSubmit = async (values: SignUpFormValues) => {
     setError(null);
     setIsLoading(true);
-    const { error: err } = await signUp({
-      email: values.email,
-      password: values.password,
-      fullName: values.fullName,
-      phone: values.phone,
-    });
-    setIsLoading(false);
-    if (err) {
+
+    if (!companySlug) {
       setError(
-        err instanceof Error ? err.message : "Erro ao criar conta. Tente novamente."
+        "Para criar conta, acesse pelo link da empresa onde deseja agendar (ex: /site/sua-empresa)."
       );
+      setIsLoading(false);
       return;
     }
+
+    const result = await createClientAccount({
+      name: values.fullName,
+      email: values.email,
+      password: values.password,
+      phone: values.phone?.trim() || undefined,
+      company_slug: companySlug,
+    });
+
+    if (!result.success) {
+      setError(result.error ?? "Erro ao criar conta. Tente novamente.");
+      setIsLoading(false);
+      return;
+    }
+
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: values.email,
+      password: values.password,
+    });
+    setIsLoading(false);
+
+    if (signInErr) {
+      setError("Conta criada, mas falha no login. Tente entrar manualmente.");
+      return;
+    }
+
     const path = returnTo.startsWith("/") ? returnTo : `/${returnTo}`;
     navigate(path, { replace: true });
   };

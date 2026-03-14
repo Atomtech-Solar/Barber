@@ -79,10 +79,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       const slug = sessionStorage.getItem("tenant_slug");
 
       if (profile?.role === "owner") {
-        // Platform owner: restaurar empresa selecionada ou deixar null
-        if (slug) {
-          const { data } = await companyService.getBySlug(slug);
-          setCurrentCompanyState(data ?? null);
+        // Platform owner: restaurar empresa selecionada ou usar a primeira disponível
+        const { data: companies } = await companyService.list();
+        if (slug && companies?.length) {
+          const bySlug = companies.find((c) => c.slug === slug);
+          if (bySlug) setCurrentCompanyState(bySlug);
+          else setCurrentCompanyState(companies[0] ?? null);
+        } else if (companies?.length) {
+          setCurrentCompanyState(companies[0] ?? null);
         }
       } else if (profile?.company_id) {
         // company_admin/employee: prioridade para company_id do perfil

@@ -9,7 +9,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { serviceService } from "@/services/service.service";
 import { professionalService } from "@/services/professional.service";
 import { bookingService } from "@/services/booking.service";
-import { authService } from "@/services/auth.service";
+import { createClientAccount } from "@/services/clientAccount.service";
 import {
   BookingSteps,
   BookingServiceSelect,
@@ -157,50 +157,31 @@ const ClientBookingInner = () => {
       if (wantsAccount) {
         const email = clientForm.email?.trim();
         if (!email) throw new Error("Email é obrigatório para criar conta.");
-        const { data: signUpData, error: signUpError } =
-          await authService.signUp({
-            email,
-            password: clientForm.password,
-            fullName: clientForm.name,
-            phone: clientForm.phone,
-            role: "client",
-            company_name: currentCompany?.name,
-            company_slug: currentCompany?.slug,
-          });
-        if (signUpError || !signUpData?.user) {
-          throw new Error(
-            signUpError?.message ?? "Falha ao criar conta. Tente novamente."
-          );
+        const companySlug = currentCompany?.slug;
+        if (!companySlug) throw new Error("Empresa não identificada. Recarregue a página.");
+
+        const result = await createClientAccount({
+          name: clientForm.name,
+          email,
+          password: clientForm.password,
+          phone: clientForm.phone,
+          company_slug: companySlug,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error ?? "Falha ao criar conta. Tente novamente.");
         }
 
-        const session = signUpData.session;
-        if (session) {
-          const { supabase } = await import("@/lib/supabase");
-          await supabase.auth.setSession({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          });
+        const { supabase } = await import("@/lib/supabase");
+        const { data: signInData, error: signInError } =
+          await supabase.auth.signInWithPassword({ email, password: clientForm.password });
+
+        if (signInError) {
+          if (import.meta.env.DEV) console.warn("[ClientBooking] signIn após create:", signInError);
         }
 
-        if (session && companyId) {
-          try {
-            const { clientService } = await import("@/services/client.service");
-            await clientService.linkUserToCompany(companyId, {
-              full_name: clientForm.name,
-              phone: clientForm.phone,
-              email: clientForm.email || undefined,
-            });
-          } catch (linkErr) {
-            if (import.meta.env.DEV) {
-              console.warn("[ClientBooking] linkUserToCompany:", linkErr);
-            }
-          }
-        }
-
-        if (session) {
-          return bookingService.createClientBooking(payload, signUpData.user.id);
-        }
-        return bookingService.createClientBooking(payload, null);
+        const userId = signInData?.user?.id ?? result.user_id ?? null;
+        return bookingService.createClientBooking(payload, userId);
       }
 
       if (user && companyId) {

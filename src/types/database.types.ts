@@ -146,6 +146,8 @@ export interface Appointment {
   id: string;
   company_id: string;
   client_id: string | null;
+  /** company_clients.id para walk-in reutilizado */
+  company_client_id?: string | null;
   /** Cliente walk-in (sem conta) */
   client_name: string | null;
   client_phone: string | null;

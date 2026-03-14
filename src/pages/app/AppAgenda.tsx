@@ -115,6 +115,19 @@ const AppAgenda = () => {
   const services = servicesData?.data ?? [];
   const clients = clientsData?.data ?? [];
   const appointments = appointmentsData?.data ?? [];
+
+  const recurringClientIds = new Set(
+    clients.filter((c) => c.visit_count >= 2).map((c) => c.id)
+  );
+  const recurringPhones = new Set(
+    clients
+      .filter((c) => c.visit_count >= 2 && c.phone)
+      .map((c) => (c.phone ?? "").replace(/\D/g, ""))
+  );
+  const isRecurringClient = (apt: Appointment) =>
+    (apt.company_client_id && recurringClientIds.has(apt.company_client_id)) ||
+    (apt.client_phone &&
+      recurringPhones.has((apt.client_phone ?? "").replace(/\D/g, "")));
   const appointment = editingAppointment?.data ?? null;
 
   const createMutation = useMutation({
@@ -315,7 +328,7 @@ const AppAgenda = () => {
       description={
         <span className="block">
           Gerencie os agendamentos da equipe
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs">
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs items-center">
             {STATUS_LEGEND.map((item) => (
               <span
                 key={item.status}
@@ -325,6 +338,10 @@ const AppAgenda = () => {
                 {item.label}
               </span>
             ))}
+            <span className="inline-flex items-center gap-1.5 rounded border border-amber-400/50 px-2 py-0.5 bg-amber-500/20 text-amber-800 dark:text-amber-200">
+              <span>★</span>
+              Cliente recorrente
+            </span>
           </div>
         </span>
       }
@@ -444,26 +461,40 @@ const AppAgenda = () => {
                                 const profName = getProfessionalName(apt.professional_id);
                                 const clientName = apt.client_name ?? "Cliente";
                                 const isConflict = conflictingIds.has(apt.id);
+                                const recurring = isRecurringClient(apt);
                                 const variant = isConflict
                                   ? "bg-red-500/20 border-red-500/50 text-red-700 dark:text-red-300"
                                   : getStatusVariant(apt.status);
+                                const title = [
+                                  isConflict && "Conflito de horário",
+                                  recurring && "Cliente recorrente",
+                                  apt.client_phone ? `${clientName} · ${apt.client_phone}` : clientName,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ");
                                 return (
                                   <div
                                     key={`${apt.id}-${slotTime}`}
-                                    className={`rounded px-2 py-1 text-[10px] cursor-pointer transition-opacity hover:opacity-90 border truncate ${variant}`}
-                                    title={
-                                      isConflict
-                                        ? "Conflito de horário"
-                                        : apt.client_phone
-                                          ? `${clientName} · ${apt.client_phone}`
-                                          : clientName
-                                    }
+                                    className={`rounded px-2 py-1 text-[10px] cursor-pointer transition-opacity hover:opacity-90 border truncate ${variant} ${
+                                      recurring ? "ring-1 ring-amber-400/60" : ""
+                                    }`}
+                                    title={title}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setEditingId(apt.id);
                                     }}
                                   >
-                                    <p className="font-medium truncate">{clientName}</p>
+                                    <p className="font-medium truncate flex items-center gap-1">
+                                      {clientName}
+                                      {recurring && (
+                                        <span
+                                          className="shrink-0 rounded-full bg-amber-500/30 px-1"
+                                          title="Cliente recorrente"
+                                        >
+                                          ★
+                                        </span>
+                                      )}
+                                    </p>
                                     <p className="opacity-80 truncate">
                                       {profName} · {apt.duration_minutes}min
                                     </p>
@@ -516,23 +547,37 @@ const AppAgenda = () => {
                       const profName = getProfessionalName(apt.professional_id);
                       const clientName = apt.client_name ?? "Cliente";
                       const isConflict = conflictingIds.has(apt.id);
+                      const recurring = isRecurringClient(apt);
                       const variant = isConflict
                         ? "bg-red-500/20 border-red-500/50 text-red-700 dark:text-red-300"
                         : getStatusVariant(apt.status);
+                      const title = [
+                        isConflict && "Conflito de horário",
+                        recurring && "Cliente recorrente",
+                        apt.client_phone ? `${clientName} · ${apt.client_phone}` : clientName,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ");
                       return (
                         <button
                           key={`${apt.id}-${slotTime}-mobile`}
-                          className={`w-full text-left rounded px-2 py-1 text-xs border transition-opacity hover:opacity-90 ${variant}`}
-                          title={
-                            isConflict
-                              ? "Conflito de horário"
-                              : apt.client_phone
-                                ? `${clientName} · ${apt.client_phone}`
-                                : clientName
-                          }
+                          className={`w-full text-left rounded px-2 py-1 text-xs border transition-opacity hover:opacity-90 ${variant} ${
+                            recurring ? "ring-1 ring-amber-400/60" : ""
+                          }`}
+                          title={title}
                           onClick={() => setEditingId(apt.id)}
                         >
-                          <p className="font-medium truncate">{clientName}</p>
+                          <p className="font-medium truncate flex items-center gap-1">
+                            {clientName}
+                            {recurring && (
+                              <span
+                                className="shrink-0 rounded-full bg-amber-500/30 px-1"
+                                title="Cliente recorrente"
+                              >
+                                ★
+                              </span>
+                            )}
+                          </p>
                           {apt.client_phone && (
                             <p className="opacity-80 truncate text-[10px]">
                               {apt.client_phone}

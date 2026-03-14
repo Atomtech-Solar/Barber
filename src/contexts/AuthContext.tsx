@@ -29,6 +29,7 @@ interface AuthContextType {
     phone?: string;
     company_name?: string;
     company_slug?: string;
+    company_id?: string;
   }) => Promise<{ error: unknown }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;

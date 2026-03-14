@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Scissors } from "lucide-react";
 import type { Company } from "@/types/database.types";
 
-const DEFAULT_HERO_IMAGE =
-  "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1920";
+/** Imagem padrão em cores neutras quando nenhuma é configurada */
+const DEFAULT_HERO_IMAGE = "https://placehold.co/1920x1080/e5e7eb/9ca3af?text=Imagem+de+destaque";
 
 interface SiteHeroProps {
   company: Company;
