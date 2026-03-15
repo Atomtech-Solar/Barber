@@ -323,53 +323,49 @@ const AppAgenda = () => {
     professionals.find((p) => p.id === profId)?.name ?? "—";
 
   return (
-    <PageContainer
-      title="Agenda"
-      description={
-        <span className="block">
-          Gerencie os agendamentos da equipe
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs items-center">
-            {STATUS_LEGEND.map((item) => (
-              <span
-                key={item.status}
-                className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 ${item.className}`}
-              >
-                <span className="w-2.5 h-2.5 rounded-full bg-current opacity-70" />
-                {item.label}
-              </span>
-            ))}
-            <span className="inline-flex items-center gap-1.5 rounded border border-amber-400/50 px-2 py-0.5 bg-amber-500/20 text-amber-800 dark:text-amber-200">
-              <span>★</span>
-              Cliente recorrente
-            </span>
-          </div>
-        </span>
-      }
-      actions={
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setWeekStart(subWeeks(weekStart, 1))}
+    <PageContainer title="Agenda" description="Gerencie os agendamentos da equipe">
+      {/* Legenda de status: 100% width */}
+      <div className="w-full flex flex-wrap gap-2 items-center mb-4">
+        {STATUS_LEGEND.map((item) => (
+          <span
+            key={item.status}
+            className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs ${item.className}`}
           >
-            <ChevronLeft size={16} />
-          </Button>
-          <span className="text-xs md:text-sm font-medium px-2 md:px-3 min-w-0 md:min-w-[220px] text-center">
-            {format(weekStart, "d MMM", { locale: ptBR })} –{" "}
-            {format(addWeeks(weekStart, 1), "d MMM yyyy", { locale: ptBR })}
+            <span className="w-2.5 h-2.5 rounded-full bg-current opacity-70 shrink-0" />
+            {item.label}
           </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setWeekStart(addWeeks(weekStart, 1))}
-          >
-            <ChevronRight size={16} />
-          </Button>
-        </div>
-      }
-    >
+        ))}
+        <span className="inline-flex items-center gap-1.5 rounded border border-amber-400/50 px-2 py-1 text-xs bg-amber-500/20 text-amber-800 dark:text-amber-200">
+          <span>★</span>
+          Cliente recorrente
+        </span>
+      </div>
+
+      {/* Navegação da semana: setas e período embaixo */}
+      <div className="flex items-center justify-center gap-2 mb-4">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setWeekStart(subWeeks(weekStart, 1))}
+        >
+          <ChevronLeft size={16} />
+        </Button>
+        <span className="text-sm font-medium px-3 min-w-[200px] text-center">
+          {format(weekStart, "d MMM", { locale: ptBR })} –{" "}
+          {format(addWeeks(weekStart, 1), "d MMM yyyy", { locale: ptBR })}
+        </span>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setWeekStart(addWeeks(weekStart, 1))}
+        >
+          <ChevronRight size={16} />
+        </Button>
+      </div>
+
+      {/* Dias em quadrados (mobile/tablet) */}
       <div className="md:hidden mb-4">
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
           {weekDays.map((d) => {
             const isSelected = d.offset === selectedDayOffset;
             const isToday = d.dateStr === todayStr;
@@ -379,11 +375,12 @@ const AppAgenda = () => {
                 type="button"
                 variant={isSelected ? "default" : "outline"}
                 size="sm"
-                className="shrink-0"
+                className="aspect-square flex flex-col gap-0.5 p-1 h-auto"
                 onClick={() => setSelectedDayOffset(d.offset)}
               >
-                {d.label} {format(d.dateObj, "d")}
-                {isToday ? " · Hoje" : ""}
+                <span className="text-[10px] font-normal opacity-90">{d.label}</span>
+                <span className="text-base font-semibold">{format(d.dateObj, "d")}</span>
+                {isToday && <span className="text-[10px]">Hoje</span>}
               </Button>
             );
           })}

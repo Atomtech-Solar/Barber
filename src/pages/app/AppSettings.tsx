@@ -137,22 +137,24 @@ const AppSettings = () => {
             <p className="text-sm text-muted-foreground">
               Sua página pública onde clientes podem ver serviços, profissionais e agendar horários.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Input
-                readOnly
-                value={landingUrl}
-                className="font-mono text-sm bg-muted/50"
-              />
-              <div className="flex gap-2 shrink-0">
+            <div className="flex flex-col gap-3">
+              <div className="min-w-0">
+                <Input
+                  readOnly
+                  value={landingUrl}
+                  className="font-mono text-sm bg-muted/50 w-full min-w-0"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="icon" onClick={copyLandingUrl} title="Copiar link">
                   <Copy size={18} />
                 </Button>
-                <Button onClick={openLanding} className="gap-2">
+                <Button onClick={openLanding} className="gap-2 shrink-0">
                   <ExternalLink size={18} />
                   Abrir landing page
                 </Button>
-                <Link to="/app/settings/landing">
-                  <Button variant="secondary" className="gap-2">
+                <Link to="/app/settings/landing" className="shrink-0">
+                  <Button variant="secondary" className="gap-2 w-full sm:w-auto">
                     <Layout size={18} />
                     Personalizar landing
                   </Button>

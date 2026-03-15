@@ -12,9 +12,23 @@ export interface CreateFromAppointmentParams {
 }
 
 export interface FinancialStats {
-  incomeToday: number;
-  expenseToday: number;
-  balanceToday: number;
+  /** Saldo acumulado antes do período (entradas - saídas em registros anteriores) */
+  openingBalance: number;
+  /** Total de entradas no período */
+  income: number;
+  /** Total de saídas no período */
+  expense: number;
+  /** Saldo Atual = openingBalance + income - expense */
+  balance: number;
+}
+
+export interface CreateManualParams {
+  company_id: string;
+  type: "income" | "expense";
+  description: string;
+  amount: number;
+  created_at?: string; // ISO string, default now
+  created_by?: string;
 }
 
 export const financialService = {
@@ -82,33 +96,81 @@ export const financialService = {
     return { data: (data ?? []) as FinancialRecord[], error };
   },
 
-  async getStats(companyId: string): Promise<{ data: FinancialStats; error: unknown }> {
-    const today = new Date().toISOString().slice(0, 10);
-    const start = `${today}T00:00:00`;
-    const end = `${today}T23:59:59`;
+  async createManual(params: CreateManualParams) {
+    const amount = Math.abs(params.amount);
+    const { data, error } = await supabase
+      .from("financial_records")
+      .insert({
+        company_id: params.company_id,
+        appointment_id: null,
+        type: params.type,
+        source: "manual",
+        description: params.description,
+        amount,
+        created_at: params.created_at ?? new Date().toISOString(),
+        created_by: params.created_by ?? null,
+        is_valid: true,
+      })
+      .select()
+      .single();
+    return { data: data as FinancialRecord, error };
+  },
 
-    const { data: records, error } = await supabase
+  async getStats(
+    companyId: string,
+    opts: { startDate: string; endDate: string }
+  ): Promise<{ data: FinancialStats; error: unknown }> {
+    const periodStart = `${opts.startDate}T00:00:00`;
+    const periodEnd = `${opts.endDate}T23:59:59`;
+
+    const { data: recordsBefore, error: errBefore } = await supabase
       .from("financial_records")
       .select("type, amount")
       .eq("company_id", companyId)
       .eq("is_valid", true)
-      .gte("created_at", start)
-      .lte("created_at", end);
+      .lt("created_at", periodStart);
 
-    if (error) return { data: { incomeToday: 0, expenseToday: 0, balanceToday: 0 }, error };
+    if (errBefore) {
+      return {
+        data: { openingBalance: 0, income: 0, expense: 0, balance: 0 },
+        error: errBefore,
+      };
+    }
 
-    let incomeToday = 0;
-    let expenseToday = 0;
-    (records ?? []).forEach((r) => {
-      if (r.type === "income") incomeToday += Number(r.amount);
-      else expenseToday += Number(r.amount);
+    let openingBalance = 0;
+    (recordsBefore ?? []).forEach((r) => {
+      const amt = Math.abs(Number(r.amount));
+      openingBalance += r.type === "income" ? amt : -amt;
+    });
+
+    const { data: recordsInPeriod, error } = await supabase
+      .from("financial_records")
+      .select("type, amount")
+      .eq("company_id", companyId)
+      .eq("is_valid", true)
+      .gte("created_at", periodStart)
+      .lte("created_at", periodEnd);
+
+    if (error) {
+      return {
+        data: { openingBalance, income: 0, expense: 0, balance: openingBalance },
+        error,
+      };
+    }
+
+    let income = 0;
+    let expense = 0;
+    (recordsInPeriod ?? []).forEach((r) => {
+      if (r.type === "income") income += Number(r.amount);
+      else expense += Math.abs(Number(r.amount));
     });
 
     return {
       data: {
-        incomeToday,
-        expenseToday,
-        balanceToday: incomeToday - expenseToday,
+        openingBalance,
+        income,
+        expense,
+        balance: openingBalance + income - expense,
       },
       error: null,
     };

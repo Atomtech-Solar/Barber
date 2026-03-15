@@ -5,14 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -77,7 +70,7 @@ const AppPayments = () => {
         title="Gestão de Pagamentos"
         description="Configure salário fixo e comissão por profissional. Controle mensal transparente."
       >
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div>
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Carregando...</div>
           ) : professionals.length === 0 ? (
@@ -86,47 +79,58 @@ const AppPayments = () => {
               pagamentos.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Profissional</TableHead>
-                  <TableHead>Salário fixo</TableHead>
-                  <TableHead>Comissão padrão</TableHead>
-                  <TableHead>Faturamento do mês</TableHead>
-                  <TableHead>Valor estimado</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[180px]">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {professionals.map((p) => (
-                  <TableRow key={p.professional_id}>
-                    <TableCell className="font-medium">{p.professional_name}</TableCell>
-                    <TableCell>{formatCurrency(p.salario_fixo_mensal)}</TableCell>
-                    <TableCell>{p.percentual_comissao_padrao}%</TableCell>
-                    <TableCell>{formatCurrency(p.total_faturado)}</TableCell>
-                    <TableCell className="font-medium">{formatCurrency(p.valor_final)}</TableCell>
-                    <TableCell>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {professionals.map((p) => (
+                <Card key={p.professional_id} className="overflow-hidden">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-2 mb-4">
+                      <h3 className="font-semibold text-lg truncate">{p.professional_name}</h3>
                       <Badge variant={p.fechado ? "secondary" : "default"}>
                         {p.fechado ? "Fechado" : "Aberto"}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openConfig(p)}>
-                          <Pencil size={14} className="mr-1" />
-                          Editar
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => openMonthly(p)}>
-                          <Calendar size={14} className="mr-1" />
-                          Ver mês
-                        </Button>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Salário fixo</span>
+                        <span>{formatCurrency(p.salario_fixo_mensal)}</span>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Comissão padrão</span>
+                        <span>{p.percentual_comissao_padrao}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Faturamento do mês</span>
+                        <span>{formatCurrency(p.total_faturado)}</span>
+                      </div>
+                      <div className="flex justify-between font-medium pt-2 border-t">
+                        <span>Valor estimado</span>
+                        <span>{formatCurrency(p.valor_final)}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-4 pt-4 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => openConfig(p)}
+                      >
+                        <Pencil size={14} className="mr-1" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => openMonthly(p)}
+                      >
+                        <Calendar size={14} className="mr-1" />
+                        Ver mês
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
         </div>
       </PageContainer>

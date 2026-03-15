@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PageContainer from "@/components/shared/PageContainer";
 import {
   Table,
@@ -9,38 +10,221 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import CardWidget from "@/components/shared/CardWidget";
-import { DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/hooks/useAuth";
 import { financialService } from "@/services/financial.service";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import {
+  getPeriodRange,
+  formatPeriodLabel,
+  type PeriodKey,
+} from "@/lib/dateUtils";
+import type { FinancialRecord } from "@/types/database.types";
+
+const PERIOD_OPTIONS: { id: PeriodKey; label: string }[] = [
+  { id: "today", label: "Hoje" },
+  { id: "week", label: "Semana" },
+  { id: "month", label: "Mês" },
+  { id: "custom", label: "Período personalizado" },
+];
+
+function formatCurrency(value: number) {
+  return `R$ ${value.toFixed(2).replace(".", ",")}`;
+}
+
+function formatSource(source: string) {
+  if (source === "appointment") return "Agendamento";
+  if (source === "manual") return "Manual";
+  if (source === "product") return "Produto";
+  return source;
+}
+
+function getDescriptionDisplay(r: FinancialRecord) {
+  if (r.source === "appointment") {
+    const parts: string[] = [];
+    if (r.service_name_snapshot) parts.push(r.service_name_snapshot);
+    if (r.client_name_snapshot)
+      parts.push(`Cliente: ${r.client_name_snapshot}`);
+    if (r.professional_name_snapshot)
+      parts.push(`Profissional: ${r.professional_name_snapshot}`);
+    return parts.length > 0 ? parts.join("\n") : r.description ?? "—";
+  }
+  return r.description ?? "—";
+}
+
+interface ManualEntryModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  type: "income" | "expense";
+  companyId: string;
+  onSuccess: () => void;
+}
+
+function ManualEntryModal({
+  open,
+  onOpenChange,
+  type,
+  companyId,
+  onSuccess,
+}: ManualEntryModalProps) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      financialService.createManual({
+        company_id: companyId,
+        type,
+        description: description.trim(),
+        amount: parseFloat(amount.replace(",", ".")) || 0,
+        created_at: `${date}T12:00:00`,
+        created_by: user?.id,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financial"] });
+      onSuccess();
+      onOpenChange(false);
+      setDescription("");
+      setAmount("");
+      setDate(format(new Date(), "yyyy-MM-dd"));
+      toast.success(type === "income" ? "Entrada registrada!" : "Saída registrada!");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message ?? "Erro ao registrar.");
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(amount.replace(",", ".")) || 0;
+    if (!description.trim()) {
+      toast.error("Informe a descrição.");
+      return;
+    }
+    if (!val || val <= 0) {
+      toast.error("Informe um valor válido.");
+      return;
+    }
+    mutation.mutate();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {type === "income" ? "Nova Entrada" : "Nova Saída"}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>Descrição</Label>
+            <Input
+              placeholder="Ex: Aluguel, Compra de produtos..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Valor (R$)</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="0,00"
+              value={amount}
+              onChange={(e) =>
+                setAmount(e.target.value.replace(/[^\d,.]/g, ""))
+              }
+            />
+          </div>
+          <div>
+            <Label>Data</Label>
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? "Salvando..." : "Registrar"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const AppFinancial = () => {
   const { currentCompany } = useTenant();
   const companyId = currentCompany?.id ?? "";
+  const [periodKey, setPeriodKey] = useState<PeriodKey>("today");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [manualIncomeOpen, setManualIncomeOpen] = useState(false);
+  const [manualExpenseOpen, setManualExpenseOpen] = useState(false);
+
+  const { startDate, endDate } = getPeriodRange(
+    periodKey,
+    customStart || undefined,
+    customEnd || undefined
+  );
 
   const { data: stats, isError: statsError } = useQuery({
-    queryKey: ["financial", "stats", companyId],
-    queryFn: () => financialService.getStats(companyId),
+    queryKey: ["financial", "stats", companyId, startDate, endDate],
+    queryFn: () => financialService.getStats(companyId, { startDate, endDate }),
     enabled: !!companyId,
     retry: false,
   });
 
   const { data: recordsData, isError: recordsError } = useQuery({
-    queryKey: ["financial", "records", companyId],
-    queryFn: () => financialService.listByCompany(companyId),
+    queryKey: ["financial", "records", companyId, startDate, endDate],
+    queryFn: () =>
+      financialService.listByCompany(companyId, {
+        startDate,
+        endDate,
+        validOnly: true,
+      }),
     enabled: !!companyId,
     retry: false,
   });
 
   const records = recordsData?.data ?? [];
-  const { incomeToday = 0, expenseToday = 0, balanceToday = 0 } = stats?.data ?? {};
+  const statsData = stats?.data ?? {
+    openingBalance: 0,
+    income: 0,
+    expense: 0,
+    balance: 0,
+  };
   const hasError = statsError || recordsError;
 
   if (!companyId) {
     return (
-      <PageContainer title="Financeiro" description="Controle de receitas e despesas">
+      <PageContainer
+        title="Controle de Caixa"
+        description="Movimentação financeira da empresa"
+      >
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           Selecione uma empresa para visualizar o financeiro.
         </div>
@@ -49,22 +233,91 @@ const AppFinancial = () => {
   }
 
   return (
-    <PageContainer title="Financeiro" description="Controle de receitas e despesas (fonte: agendamentos e registros manuais)">
+    <PageContainer
+      title="Controle de Caixa"
+      description="Movimentação de entradas e saídas do caixa da empresa"
+    >
       {hasError && (
         <div className="mb-4 p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
           Erro ao carregar dados financeiros. Verifique se a tabela financial_records existe no banco.
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+      {/* Filtro de período */}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="flex gap-2 flex-wrap">
+          {PERIOD_OPTIONS.map((opt) => (
+            <Button
+              key={opt.id}
+              variant={periodKey === opt.id ? "default" : "outline"}
+              size="sm"
+              onClick={() => setPeriodKey(opt.id)}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
+        {periodKey === "custom" && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Input
+              type="date"
+              value={customStart}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="w-[140px]"
+            />
+            <span className="text-muted-foreground">até</span>
+            <Input
+              type="date"
+              value={customEnd}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="w-[140px]"
+            />
+          </div>
+        )}
+        <span className="text-sm text-muted-foreground ml-auto">
+          {formatPeriodLabel(periodKey, startDate, endDate)}
+        </span>
+      </div>
+
+      {/* Cards de resumo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <CardWidget
-          title="Entradas Hoje"
-          value={`R$ ${incomeToday.toFixed(2)}`}
+          title="Saldo Inicial"
+          value={formatCurrency(statsData.openingBalance)}
+          icon={Wallet}
+        />
+        <CardWidget
+          title="Entradas no Caixa"
+          value={formatCurrency(statsData.income)}
           icon={TrendingUp}
           trend="up"
         />
-        <CardWidget title="Saídas Hoje" value={`R$ ${expenseToday.toFixed(2)}`} icon={TrendingDown} trend="down" />
-        <CardWidget title="Saldo Hoje" value={`R$ ${balanceToday.toFixed(2)}`} icon={DollarSign} />
+        <CardWidget
+          title="Saídas do Caixa"
+          value={formatCurrency(statsData.expense)}
+          icon={TrendingDown}
+          trend="down"
+        />
+        <CardWidget
+          title="Saldo Atual"
+          value={formatCurrency(statsData.balance)}
+          icon={DollarSign}
+        />
       </div>
+
+      {/* Botões de movimentação manual */}
+      <div className="flex gap-2 mb-4">
+        <Button onClick={() => setManualIncomeOpen(true)}>
+          <Plus size={16} className="mr-2" />
+          Nova Entrada
+        </Button>
+        <Button variant="outline" onClick={() => setManualExpenseOpen(true)}>
+          <Minus size={16} className="mr-2" />
+          Nova Saída
+        </Button>
+      </div>
+
+      {/* Tabela de movimentações */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
@@ -79,33 +332,35 @@ const AppFinancial = () => {
             {records.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground py-12">
-                  Nenhum registro financeiro. Receitas são geradas automaticamente quando um agendamento é marcado como &quot;Concluído&quot;.
+                  Nenhuma movimentação no período. Receitas são geradas automaticamente quando um
+                  agendamento é marcado como &quot;Concluído&quot;. Use os botões acima para registrar
+                  entradas ou saídas manuais.
                 </TableCell>
               </TableRow>
             ) : (
               records.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-medium">
-                    {r.description ?? "—"}
-                    {r.client_name_snapshot && (
-                      <p className="text-xs text-muted-foreground font-normal">
-                        Cliente: {r.client_name_snapshot}
-                      </p>
-                    )}
+                  <TableCell className="font-medium align-top">
+                    <div className="whitespace-pre-line">
+                      {getDescriptionDisplay(r)}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground capitalize">
-                    {r.source === "appointment" ? "Agendamento" : r.source}
+                  <TableCell className="text-muted-foreground capitalize align-top">
+                    {formatSource(r.source)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-muted-foreground align-top">
                     {format(new Date(r.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                   </TableCell>
                   <TableCell
                     className={cn(
-                      "text-right font-medium",
-                      r.type === "income" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                      "text-right font-medium align-top",
+                      r.type === "income"
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
                     )}
                   >
-                    {r.type === "income" ? "+" : "-"}R$ {Math.abs(Number(r.amount)).toFixed(2)}
+                    {r.type === "income" ? "+" : "-"}
+                    {formatCurrency(Math.abs(Number(r.amount)))}
                   </TableCell>
                 </TableRow>
               ))
@@ -113,6 +368,21 @@ const AppFinancial = () => {
           </TableBody>
         </Table>
       </div>
+
+      <ManualEntryModal
+        open={manualIncomeOpen}
+        onOpenChange={setManualIncomeOpen}
+        type="income"
+        companyId={companyId}
+        onSuccess={() => {}}
+      />
+      <ManualEntryModal
+        open={manualExpenseOpen}
+        onOpenChange={setManualExpenseOpen}
+        type="expense"
+        companyId={companyId}
+        onSuccess={() => {}}
+      />
     </PageContainer>
   );
 };

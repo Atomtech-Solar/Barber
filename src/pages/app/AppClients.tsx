@@ -28,13 +28,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, MoreHorizontal, Pencil, Trash2, History } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, History, Search } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import type { CompanyClientWithVisitCount } from "@/services/client.service";
 import { ClientFormModal } from "@/components/app/ClientFormModal";
 import { ClientHistorySheet } from "@/components/app/ClientHistorySheet";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 
 const AppClients = () => {
   const queryClient = useQueryClient();
@@ -44,6 +46,7 @@ const AppClients = () => {
   const [editingClient, setEditingClient] = useState<CompanyClientWithVisitCount | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [historyClientId, setHistoryClientId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const { data: clientsData, error: listError, isLoading: listLoading } = useQuery({
     queryKey: ["clients", companyId],
@@ -51,7 +54,15 @@ const AppClients = () => {
     enabled: !!companyId,
   });
 
-  const clients = clientsData?.data ?? [];
+  const allClients = clientsData?.data ?? [];
+  const searchLower = search.trim().toLowerCase();
+  const clients = searchLower
+    ? allClients.filter(
+        (c) =>
+          (c.full_name ?? "").toLowerCase().includes(searchLower) ||
+          (c.email ?? "").toLowerCase().includes(searchLower)
+      )
+    : allClients;
   const hasListError = !!listError || !!clientsData?.error;
 
   const createMutation = useMutation({
@@ -119,7 +130,22 @@ const AppClients = () => {
             Erro ao carregar clientes: {(listError as Error)?.message ?? clientsData?.error?.message}
           </p>
         )}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        {companyId && (
+          <div className="relative mb-4">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              placeholder="Buscar por nome ou e-mail..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 max-w-sm"
+            />
+          </div>
+        )}
+        {/* Tabela (desktop) */}
+        <div className="hidden lg:block bg-card border border-border rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -143,7 +169,9 @@ const AppClients = () => {
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
                     {companyId
-                      ? "Nenhum cliente cadastrado. Clique em \"Adicionar cliente\" para começar."
+                      ? search
+                        ? "Nenhum cliente encontrado para essa busca."
+                        : "Nenhum cliente cadastrado. Clique em \"Adicionar cliente\" para começar."
                       : "Selecione uma empresa acima para ver os clientes."}
                   </TableCell>
                 </TableRow>
@@ -195,6 +223,77 @@ const AppClients = () => {
               )}
             </TableBody>
           </Table>
+        </div>
+        {/* Cards (mobile/tablet) */}
+        <div className="lg:hidden space-y-4">
+          {listLoading ? (
+            <div className="text-center text-muted-foreground py-12">
+              Carregando clientes...
+            </div>
+          ) : clients.length === 0 ? (
+            <div className="text-center text-muted-foreground py-12">
+              {companyId
+                ? search
+                  ? "Nenhum cliente encontrado para essa busca."
+                  : "Nenhum cliente cadastrado. Clique em \"Adicionar cliente\" para começar."
+                : "Selecione uma empresa acima para ver os clientes."}
+            </div>
+          ) : (
+            clients.map((c) => (
+              <Card
+                key={c.id}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => setHistoryClientId(c.id)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold truncate">{c.full_name}</p>
+                      {c.email && (
+                        <p className="text-sm text-muted-foreground truncate">{c.email}</p>
+                      )}
+                      {c.phone && (
+                        <p className="text-sm text-muted-foreground">{c.phone}</p>
+                      )}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+                        <span>Visitas: {c.visit_count}</span>
+                        <span>
+                          Último: {c.last_visit
+                            ? format(parseISO(c.last_visit), "d MMM yyyy", { locale: ptBR })
+                            : "—"}
+                        </span>
+                        {c.cpf && <span>CPF: {c.cpf}</span>}
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                          <MoreHorizontal size={16} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setHistoryClientId(c.id)}>
+                          <History size={14} className="mr-2" />
+                          Ver histórico
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setEditingClient(c)}>
+                          <Pencil size={14} className="mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeletingId(c.id)}
+                        >
+                          <Trash2 size={14} className="mr-2" />
+                          Remover
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </PageContainer>
 
