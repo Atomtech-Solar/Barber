@@ -324,43 +324,45 @@ const AppAgenda = () => {
 
   return (
     <PageContainer title="Agenda" description="Gerencie os agendamentos da equipe">
-      {/* Legenda de status: 100% width */}
-      <div className="w-full flex flex-wrap gap-2 items-center mb-4">
-        {STATUS_LEGEND.map((item) => (
-          <span
-            key={item.status}
-            className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs ${item.className}`}
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-current opacity-70 shrink-0" />
-            {item.label}
-          </span>
-        ))}
-        <span className="inline-flex items-center gap-1.5 rounded border border-amber-400/50 px-2 py-1 text-xs bg-amber-500/20 text-amber-800 dark:text-amber-200">
-          <span>★</span>
-          Cliente recorrente
-        </span>
-      </div>
-
-      {/* Navegação da semana: setas e período embaixo */}
-      <div className="flex items-center justify-center gap-2 mb-4">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setWeekStart(subWeeks(weekStart, 1))}
-        >
-          <ChevronLeft size={16} />
-        </Button>
-        <span className="text-sm font-medium px-3 min-w-[200px] text-center">
-          {format(weekStart, "d MMM", { locale: ptBR })} –{" "}
-          {format(addWeeks(weekStart, 1), "d MMM yyyy", { locale: ptBR })}
-        </span>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setWeekStart(addWeeks(weekStart, 1))}
-        >
-          <ChevronRight size={16} />
-        </Button>
+      {/* Legenda + navegação: no desktop ficam na mesma linha (lateral); no mobile a navegação fica embaixo */}
+      <div className="w-full flex flex-col gap-4 mb-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-wrap gap-2 items-center min-w-0">
+            {STATUS_LEGEND.map((item) => (
+              <span
+                key={item.status}
+                className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs ${item.className}`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-current opacity-70 shrink-0" />
+                {item.label}
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1.5 rounded border border-amber-400/50 px-2 py-1 text-xs bg-amber-500/20 text-amber-800 dark:text-amber-200">
+              <span>★</span>
+              Cliente recorrente
+            </span>
+          </div>
+          <div className="flex items-center justify-center md:justify-end gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setWeekStart(subWeeks(weekStart, 1))}
+            >
+              <ChevronLeft size={16} />
+            </Button>
+            <span className="text-sm font-medium px-3 min-w-[180px] text-center">
+              {format(weekStart, "d MMM", { locale: ptBR })} –{" "}
+              {format(addWeeks(weekStart, 1), "d MMM yyyy", { locale: ptBR })}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setWeekStart(addWeeks(weekStart, 1))}
+            >
+              <ChevronRight size={16} />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Dias em quadrados (mobile/tablet) */}
@@ -388,7 +390,7 @@ const AppAgenda = () => {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="hidden md:block overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
+        <div className="hidden md:block overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-theme">
           <table className="w-full border-collapse min-w-[600px]">
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
               <tr className="border-b border-border bg-muted/30">
@@ -515,7 +517,7 @@ const AppAgenda = () => {
           </table>
         </div>
 
-        <div className="md:hidden p-3 space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
+        <div className="md:hidden p-3 space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto scrollbar-theme">
           {SLOTS.map((slotTime) => {
             const dateStr = mobileDay.dateStr;
             const startingApts = getAppointmentsStartingInCell(dateStr, slotTime);

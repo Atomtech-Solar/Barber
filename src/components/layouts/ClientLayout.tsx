@@ -132,7 +132,7 @@ const ClientLayout = () => {
           <span className="font-display font-bold text-primary">{companyName}</span>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 pb-24 md:p-6 md:pb-6 lg:p-8 lg:pb-8">
+        <main className="flex-1 overflow-auto p-4 pb-24 md:p-6 md:pb-6 lg:p-8 lg:pb-8 scrollbar-theme">
           <div className="mx-auto w-full max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl">
             <Outlet />
           </div>

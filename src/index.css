@@ -118,3 +118,26 @@
     @apply font-display;
   }
 }
+
+/* Scrollbar temática (cor primária da empresa) – fina para não ocupar espaço */
+.scrollbar-theme {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.6) transparent;
+}
+.scrollbar-theme::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-theme::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-theme::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.5);
+  border-radius: 4px;
+}
+.scrollbar-theme::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.7);
+}
+.scrollbar-theme::-webkit-scrollbar-corner {
+  background: transparent;
+}

@@ -117,7 +117,7 @@ const DashboardLayout = () => {
           </button>
         </div>
 
-        <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
+        <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto scrollbar-theme">
           {renderNavLinks(collapsed)}
         </nav>
       </aside>
@@ -135,7 +135,7 @@ const DashboardLayout = () => {
                 <SheetHeader className="p-4 border-b border-border">
                   <SheetTitle className="font-display text-primary">brynex</SheetTitle>
                 </SheetHeader>
-                <nav className="p-2 space-y-1 overflow-y-auto">
+                <nav className="p-2 space-y-1 overflow-y-auto scrollbar-theme">
                   {renderNavLinks(false, () => setMobileMenuOpen(false))}
                 </nav>
               </SheetContent>
@@ -161,7 +161,7 @@ const DashboardLayout = () => {
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 md:p-6">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 md:p-6 scrollbar-theme">
           {accessLoading ? (
             <div className="min-h-[200px] flex items-center justify-center">
               <div className="animate-pulse text-muted-foreground">Carregando acessos...</div>
