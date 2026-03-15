@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { Scissors, Shield, Building2, User, Globe, ChevronRight } from "lucide-react";
+import { Scissors, Shield, Building2, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { resetAppTheme } from "@/lib/companyTheme";
 
@@ -35,29 +35,6 @@ function OptionCard({ to, icon, title, description }: OptionCardProps) {
       </div>
       <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0" />
     </Link>
-  );
-}
-
-interface OptionCardDisabledProps {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}
-
-function OptionCardDisabled({ icon, title, description }: OptionCardDisabledProps) {
-  return (
-    <div className="flex items-center gap-4 p-5 rounded-xl border border-border bg-muted/30 opacity-70">
-      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center shrink-0">
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0 text-left">
-        <p className="font-semibold text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-      <span className="text-xs font-medium text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2.5 py-1 rounded-md shrink-0">
-        Em breve
-      </span>
-    </div>
   );
 }
 
@@ -115,16 +92,6 @@ const Index = () => {
               icon={<Building2 size={24} className="text-primary" />}
               title="Dashboard Empresa"
               description="Gestão do negócio"
-            />
-            <OptionCardDisabled
-              icon={<Globe size={24} className="text-muted-foreground" />}
-              title="Landing Page"
-              description="Página pública da empresa"
-            />
-            <OptionCardDisabled
-              icon={<User size={24} className="text-muted-foreground" />}
-              title="Área do Cliente"
-              description="Agendamentos e perfil"
             />
           </div>
 

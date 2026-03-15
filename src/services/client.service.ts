@@ -124,6 +124,46 @@ export const clientService = {
   },
 
   /**
+   * Histórico do cliente: info, estatísticas e atendimentos.
+   * Requer migration 041 (get_client_history).
+   */
+  async getClientHistory(companyId: string, companyClientId: string) {
+    const { data, error } = await supabase.rpc("get_client_history", {
+      p_company_id: companyId,
+      p_company_client_id: companyClientId,
+    });
+
+    if (error) return { data: null, error };
+
+    const res = data as {
+      success?: boolean;
+      error?: string;
+      client?: Record<string, unknown>;
+      stats?: Record<string, unknown>;
+      history?: Array<{
+        appointment_id: string;
+        date: string;
+        service_names: string;
+        professional_name: string;
+        valor: number;
+      }>;
+    } | null;
+
+    if (!res?.success) {
+      return { data: null, error: new Error(res?.error ?? "Erro ao carregar histórico") };
+    }
+
+    return {
+      data: {
+        client: res.client,
+        stats: res.stats,
+        history: res.history ?? [],
+      },
+      error: null,
+    };
+  },
+
+  /**
    * Vincula o usuário autenticado à empresa (após criar conta pela landing).
    * Multi-tenant: cada empresa tem seus próprios clientes.
    */

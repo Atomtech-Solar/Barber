@@ -66,6 +66,10 @@ export interface UpdateAppointmentParams {
 export interface AvailableSlot {
   startTime: string;
   endTime: string;
+  /** false se horário já passou ou está ocupado */
+  available?: boolean;
+  /** Motivo quando available=false */
+  unavailableReason?: "past" | "occupied";
 }
 
 const SLOT_INTERVAL_MINUTES = 30;
@@ -111,11 +115,8 @@ export const bookingService = {
     return { data: (data ?? []) as Appointment[], error };
   },
 
-  /** Lista agendamentos do cliente: próximos (futuros/ativos) e histórico */
+  /** Lista agendamentos do cliente: não finalizados (em cima) e finalizados no histórico (embaixo) */
   async listMyAppointments(userId: string) {
-    const now = new Date();
-    const today = now.toISOString().slice(0, 10);
-    const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     const { data, error } = await supabase
       .from("appointments")
       .select("*")
@@ -125,18 +126,21 @@ export const bookingService = {
     if (error) return { upcoming: [], history: [], error };
 
     const all = (data ?? []) as Appointment[];
-    const isUpcoming = (a: Appointment) => {
-      if (["cancelled", "completed"].includes(a.status ?? "")) return false;
-      if (a.date > today) return true;
-      if (a.date === today) {
-        const start = (a.start_time ?? "00:00").slice(0, 5);
-        return start >= nowTime;
-      }
-      return false;
-    };
-    const upcoming = all.filter(isUpcoming);
-    const history = all.filter((a) => !isUpcoming(a));
-    return { upcoming, history, error: null };
+    const isFinalizado = (a: Appointment) =>
+      ["cancelled", "completed"].includes(a.status ?? "");
+    const notFinalizados = all
+      .filter((a) => !isFinalizado(a))
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return ((a.start_time ?? "") as string).localeCompare((b.start_time ?? "") as string);
+      });
+    const finalizados = all
+      .filter(isFinalizado)
+      .sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return ((b.start_time ?? "") as string).localeCompare((a.start_time ?? "") as string);
+      });
+    return { upcoming: notFinalizados, history: finalizados, error: null };
   },
 
   /** Verifica se pode cancelar (até 2h antes) */
@@ -164,6 +168,10 @@ export const bookingService = {
     return { data: (data ?? []) as Appointment[], error };
   },
 
+  /**
+   * Obtém slots. Usa RPC get_busy_periods (bypassa RLS) para períodos ocupados,
+   * gera todos os slots no cliente e desabilita apenas os que sobrepõem.
+   */
   async getAvailableSlots(
     companyId: string,
     professionalId: string,
@@ -200,7 +208,18 @@ export const bookingService = {
     if (whError) return { data: [], error: whError };
     if (!wh?.length) return { data: [], error: null };
 
-    const { data: existing } = await this.listByProfessionalAndDate(professionalId, date);
+    const { data: busyData } = await supabase.rpc("get_busy_periods", {
+      p_professional_id: professionalId,
+      p_date: date,
+    });
+    const busyPeriods = (Array.isArray(busyData) ? busyData : []) as {
+      start_time?: string;
+      duration_minutes?: number;
+    }[];
+
+    const now = new Date();
+    const today = format(now, "yyyy-MM-dd");
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
     const slots: AvailableSlot[] = [];
     const dateStr = date;
@@ -230,17 +249,28 @@ export const bookingService = {
         const startTime = format(current, "HH:mm");
         const endTime = format(addMinutes(current, totalDuration), "HH:mm");
 
-        const overlaps = (existing ?? []).some((apt) => {
+        const overlaps = busyPeriods.some((apt) => {
           const aptStart = parse(normalizeTime(apt.start_time), "HH:mm", new Date());
-          const aptEnd = addMinutes(aptStart, apt.duration_minutes);
+          const aptEnd = addMinutes(aptStart, apt.duration_minutes ?? 0);
           const slotStart = parse(startTime, "HH:mm", new Date());
           const slotEnd = parse(endTime, "HH:mm", new Date());
           return slotStart < aptEnd && slotEnd > aptStart;
         });
 
-        if (!overlaps) {
-          slots.push({ startTime, endTime });
-        }
+        const isPast =
+          date === today && timeToMinutes(startTime) < nowMinutes;
+
+        const available = !overlaps && !isPast;
+        slots.push({
+          startTime,
+          endTime,
+          available,
+          unavailableReason: !available
+            ? isPast
+              ? "past"
+              : "occupied"
+            : undefined,
+        });
 
         current = addMinutes(current, SLOT_INTERVAL_MINUTES);
       }
@@ -324,6 +354,24 @@ export const bookingService = {
   },
 
   async create(params: CreateAppointmentParams) {
+    const { data: existing } = await this.listByProfessionalAndDate(
+      params.professional_id,
+      params.date
+    );
+    const overlaps = (existing ?? []).some((apt) => {
+      const aptStart = parse(normalizeTime(apt.start_time), "HH:mm", new Date());
+      const aptEnd = addMinutes(aptStart, apt.duration_minutes);
+      const slotStart = parse(normalizeTime(params.start_time), "HH:mm", new Date());
+      const slotEnd = addMinutes(slotStart, params.duration_minutes);
+      return slotStart < aptEnd && slotEnd > aptStart;
+    });
+    if (overlaps) {
+      return {
+        data: null,
+        error: new Error("Horário indisponível. Este profissional já tem um agendamento neste horário."),
+      };
+    }
+
     const insert: Record<string, unknown> = {
       company_id: params.company_id,
       client_id: params.client_id,
@@ -420,6 +468,24 @@ export const bookingService = {
   },
 
   async createAdmin(params: CreateAdminAppointmentParams) {
+    const { data: existing } = await this.listByProfessionalAndDate(
+      params.professional_id,
+      params.date
+    );
+    const overlaps = (existing ?? []).some((apt) => {
+      const aptStart = parse(normalizeTime(apt.start_time), "HH:mm", new Date());
+      const aptEnd = addMinutes(aptStart, apt.duration_minutes);
+      const slotStart = parse(normalizeTime(params.start_time), "HH:mm", new Date());
+      const slotEnd = addMinutes(slotStart, params.duration_minutes);
+      return slotStart < aptEnd && slotEnd > aptStart;
+    });
+    if (overlaps) {
+      return {
+        data: null,
+        error: new Error("Horário indisponível. Este profissional já tem um agendamento neste horário."),
+      };
+    }
+
     let companyClientId: string | null = null;
     if (params.client_phone?.trim()) {
       const { data: ccId } = await supabase.rpc("get_or_create_company_client", {
@@ -504,10 +570,41 @@ export const bookingService = {
   async update(id: string, params: UpdateAppointmentParams) {
     const { data: oldApt, error: fetchErr } = await supabase
       .from("appointments")
-      .select("status")
+      .select("status, professional_id, date, start_time, duration_minutes")
       .eq("id", id)
       .single();
     const oldStatus = fetchErr ? null : (oldApt?.status as Appointment["status"] | null);
+    const old = oldApt as { professional_id?: string; date?: string; start_time?: string; duration_minutes?: number } | null;
+
+    const willChangeSlot =
+      params.date !== undefined ||
+      params.start_time !== undefined ||
+      params.duration_minutes !== undefined ||
+      params.professional_id !== undefined;
+    if (willChangeSlot && old) {
+      const profId = params.professional_id ?? old.professional_id;
+      const date = params.date ?? old.date;
+      const startTime = params.start_time ?? old.start_time;
+      const duration = params.duration_minutes ?? old.duration_minutes ?? 0;
+      if (profId && date && startTime) {
+        const { data: existing } = await this.listByProfessionalAndDate(profId, date);
+        const overlaps = (existing ?? [])
+          .filter((a) => a.id !== id)
+          .some((apt) => {
+            const aptStart = parse(normalizeTime(apt.start_time), "HH:mm", new Date());
+            const aptEnd = addMinutes(aptStart, apt.duration_minutes);
+            const slotStart = parse(normalizeTime(startTime), "HH:mm", new Date());
+            const slotEnd = addMinutes(slotStart, duration);
+            return slotStart < aptEnd && slotEnd > aptStart;
+          });
+        if (overlaps) {
+          return {
+            data: null,
+            error: new Error("Horário indisponível. Este profissional já tem um agendamento neste horário."),
+          };
+        }
+      }
+    }
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),

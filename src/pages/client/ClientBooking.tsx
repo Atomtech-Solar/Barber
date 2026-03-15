@@ -21,7 +21,7 @@ import {
   type ClientFormData,
 } from "@/components/booking";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { maskPhone } from "@/lib/masks";
 
 const INITIAL_CLIENT_FORM: ClientFormData = {
   name: "",
@@ -35,7 +35,7 @@ const ClientBookingInner = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const companySlug = searchParams.get("company");
-  const { user, initialized } = useAuth();
+  const { user, profile, initialized } = useAuth();
   const { currentCompany, setCurrentCompanyBySlug, isLoading: tenantLoading } =
     useTenant();
   const queryClient = useQueryClient();
@@ -53,6 +53,20 @@ const ClientBookingInner = () => {
       setCurrentCompanyBySlug(companySlug);
     }
   }, [companySlug, setCurrentCompanyBySlug]);
+
+  useEffect(() => {
+    if (step === 4 && user && profile) {
+      setClientForm((prev) => {
+        if (prev.name || prev.phone) return prev;
+        return {
+          ...prev,
+          name: profile.full_name ?? "",
+          phone: maskPhone(profile.phone ?? ""),
+          email: user.email ?? prev.email,
+        };
+      });
+    }
+  }, [step, user, profile]);
 
   const companyId = currentCompany?.id ?? "";
 
@@ -101,7 +115,7 @@ const ClientBookingInner = () => {
     ? format(selectedDate, "yyyy-MM-dd")
     : "";
 
-  const { data: slotsData } = useQuery({
+  const { data: slotsData, refetch: refetchSlots } = useQuery({
     queryKey: [
       "slots",
       companyId,
@@ -124,14 +138,23 @@ const ClientBookingInner = () => {
       !!selectedPro &&
       !!selectedDateStr &&
       selectedServices.length > 0,
+    staleTime: 0,
   });
 
   const slots = slotsData?.data ?? [];
+
+  useEffect(() => {
+    if (step === 3 && !!companyId && !!selectedPro && !!selectedDateStr) {
+      refetchSlots();
+    }
+  }, [step, companyId, selectedPro, selectedDateStr, refetchSlots]);
   const selectedServiceNames = services
     .filter((s) => selectedServices.includes(s.id))
     .map((s) => s.name)
     .join(", ");
-  const selectedProName = professionals.find((p) => p.id === selectedPro)?.name;
+  const selectedProfessional = professionals.find((p) => p.id === selectedPro);
+  const selectedProName = selectedProfessional?.name;
+  const selectedProSpecialty = selectedProfessional?.specialty;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -419,6 +442,16 @@ const ClientBookingInner = () => {
                 slots={slots}
                 selected={selectedTime}
                 onSelect={(time) => {
+                  const slot = slots.find((s) => s.startTime === time);
+                  if (slot && slot.available === false) {
+                    toast({
+                      variant: "destructive",
+                      title: "Horário indisponível",
+                      description: "Este horário foi reservado. Escolha outro.",
+                    });
+                    refetchSlots();
+                    return;
+                  }
                   setSelectedTime(time);
                   setStep(4);
                 }}
@@ -454,6 +487,7 @@ const ClientBookingInner = () => {
               companyName={currentCompany.name}
               serviceName={selectedServiceNames}
               professionalName={selectedProName}
+              professionalSpecialty={selectedProSpecialty}
               clientName={clientForm.name?.trim() || undefined}
               clientPhone={clientForm.phone?.trim() || undefined}
               date={selectedDateStr}
@@ -485,8 +519,9 @@ const ClientBookingInner = () => {
             companyName={currentCompany.name}
             serviceName={step >= 1 ? selectedServiceNames || undefined : undefined}
             professionalName={step >= 2 ? selectedProName : undefined}
-            clientName={step >= 5 ? clientForm.name?.trim() || undefined : undefined}
-            clientPhone={step >= 5 ? clientForm.phone?.trim() || undefined : undefined}
+            professionalSpecialty={step >= 2 ? selectedProSpecialty : undefined}
+            clientName={step >= 4 ? clientForm.name?.trim() || undefined : undefined}
+            clientPhone={step >= 4 ? clientForm.phone?.trim() || undefined : undefined}
             date={step >= 3 ? selectedDateStr || undefined : undefined}
             time={step >= 4 ? selectedTime ?? undefined : undefined}
             duration={step >= 4 ? totalDuration : undefined}

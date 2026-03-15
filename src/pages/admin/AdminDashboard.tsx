@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import PageContainer from "@/components/shared/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Users, Lock, Unlock, Pencil, Trash2 } from "lucide-react";
+import { Plus, Eye, Users, Lock, Unlock, Pencil, Trash2, ImagePlus, Link2 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/hooks/useAuth";
 import { companyService } from "@/services/company.service";
@@ -19,6 +19,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { maskPhone } from "@/lib/masks";
+import { supabase } from "@/lib/supabase";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -48,10 +50,15 @@ const AdminDashboard = () => {
     slogan: "",
     phone: "",
     email: "",
+    owner_name: "",
+    owner_phone: "",
+    owner_photo_url: "",
     active_from: "",
     active_days: "",
     admin_obs: "",
   });
+  const [ownerPhotoSource, setOwnerPhotoSource] = useState<"url" | "upload">("url");
+  const ownerPhotoFileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: companiesData } = useQuery({
     queryKey: ["companies"],
@@ -67,6 +74,7 @@ const AdminDashboard = () => {
       name: string;
       slug: string;
       logo_url?: string;
+      owner_photo_url?: string;
       cnpj?: string;
       email: string;
       owner_name: string;
@@ -103,6 +111,9 @@ const AdminDashboard = () => {
         slogan: form.slogan || undefined,
         phone: form.phone || undefined,
         email: form.email || undefined,
+        owner_name: form.owner_name || undefined,
+        owner_phone: form.owner_phone || undefined,
+        owner_photo_url: form.owner_photo_url || undefined,
         active_from: form.active_from || null,
         active_days: form.active_days ? parseInt(form.active_days, 10) : null,
         admin_obs: form.admin_obs || null,
@@ -134,6 +145,35 @@ const AdminDashboard = () => {
   const handleAcessar = (company: Company) => {
     setCurrentCompany(company);
     navigate("/app");
+  };
+
+  const handleOwnerPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Formato inválido. Use JPG, PNG, WebP ou GIF.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Imagem deve ter no máximo 2MB.");
+      return;
+    }
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `owner-photos/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data, error } = await supabase.storage
+        .from("company-logos")
+        .upload(path, file, { upsert: false });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage
+        .from("company-logos")
+        .getPublicUrl(data.path);
+      setForm((f) => ({ ...f, owner_photo_url: urlData.publicUrl }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar imagem.");
+    }
+    e.target.value = "";
   };
 
   const companies = companiesData ?? [];
@@ -237,10 +277,14 @@ const AdminDashboard = () => {
                       slogan: company.slogan ?? "",
                       phone: company.phone ?? "",
                       email: company.email ?? "",
+                      owner_name: company.owner_name ?? "",
+                      owner_phone: company.owner_phone ?? "",
+                      owner_photo_url: company.owner_photo_url ?? "",
                       active_from: company.active_from ?? "",
                       active_days: company.active_days != null ? String(company.active_days) : "",
                       admin_obs: company.admin_obs ?? "",
                     });
+                    setOwnerPhotoSource("url");
                   }}
                 >
                   <Pencil size={14} />
@@ -281,6 +325,7 @@ const AdminDashboard = () => {
                 cnpj: values.cnpj || undefined,
                 slogan: values.slogan || undefined,
                 logo_url: values.logo_url,
+                owner_photo_url: values.owner_photo_url,
               });
             }}
             onCancel={() => setCreating(false)}
@@ -290,7 +335,7 @@ const AdminDashboard = () => {
       </Dialog>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Empresa</DialogTitle>
           </DialogHeader>
@@ -330,6 +375,81 @@ const AdminDashboard = () => {
                 value={form.slogan}
                 onChange={(e) => setForm((f) => ({ ...f, slogan: e.target.value }))}
               />
+            </div>
+            <div className="border-t pt-4">
+              <p className="mb-3 text-sm font-medium text-muted-foreground">Dados do responsável</p>
+              <div className="space-y-4">
+                <div>
+                  <Label>Nome do responsável</Label>
+                  <Input
+                    placeholder="João Silva"
+                    value={form.owner_name}
+                    onChange={(e) => setForm((f) => ({ ...f, owner_name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Telefone do responsável</Label>
+                  <Input
+                    placeholder="(11) 99999-0000"
+                    value={form.owner_phone}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, owner_phone: maskPhone(e.target.value) }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Foto do responsável (opcional)</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Button
+                      type="button"
+                      variant={ownerPhotoSource === "url" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setOwnerPhotoSource("url")}
+                    >
+                      <Link2 size={14} className="mr-1" />
+                      Link
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={ownerPhotoSource === "upload" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => ownerPhotoFileInputRef.current?.click()}
+                    >
+                      <ImagePlus size={14} className="mr-1" />
+                      Upload
+                    </Button>
+                    <input
+                      ref={ownerPhotoFileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={handleOwnerPhotoUpload}
+                    />
+                  </div>
+                  {ownerPhotoSource === "url" && (
+                    <Input
+                      className="mt-2"
+                      placeholder="https://exemplo.com/foto-responsavel.jpg"
+                      value={form.owner_photo_url}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, owner_photo_url: e.target.value }))
+                      }
+                    />
+                  )}
+                  {form.owner_photo_url && (
+                    <div className="mt-2 w-14 h-14 rounded-full border border-border overflow-hidden bg-muted">
+                      <img
+                        src={form.owner_photo_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="border-t pt-4">
               <p className="mb-3 text-sm font-medium text-muted-foreground">Controle do admin</p>

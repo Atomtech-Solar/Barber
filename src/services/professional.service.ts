@@ -126,17 +126,34 @@ export const professionalService = {
     return { data: data as Professional | null, error };
   },
 
+  /**
+   * Retorna profissionais que fazem TODOS os serviços selecionados.
+   * Ex: se selecionou barba + cabelo, só mostra quem faz os dois.
+   */
   async getProfessionalsByServiceIds(companyId: string, serviceIds: string[]) {
     if (serviceIds.length === 0) return { data: [] as Professional[], error: null };
 
     const { data: links, error: linkError } = await supabase
       .from("professional_services")
-      .select("professional_id")
+      .select("professional_id, service_id")
       .in("service_id", serviceIds);
 
     if (linkError) return { data: [], error: linkError };
 
-    const proIds = [...new Set((links ?? []).map((l) => l.professional_id))];
+    const byPro = (links ?? []).reduce<Record<string, Set<string>>>(
+      (acc, row) => {
+        const pid = row.professional_id;
+        if (!acc[pid]) acc[pid] = new Set();
+        acc[pid].add(row.service_id);
+        return acc;
+      },
+      {}
+    );
+
+    const proIds = Object.entries(byPro)
+      .filter(([, ids]) => ids.size === serviceIds.length)
+      .map(([pid]) => pid);
+
     if (proIds.length === 0) return { data: [], error: null };
 
     const { data, error } = await supabase

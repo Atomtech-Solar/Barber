@@ -47,6 +47,7 @@ export interface Company {
   email: string | null;
   owner_name: string | null;
   owner_phone: string | null;
+  owner_photo_url: string | null;
   slogan: string | null;
   phone: string | null;
   opening_time: string | null;

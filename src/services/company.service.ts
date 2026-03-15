@@ -10,6 +10,7 @@ export interface CreateCompanyParams {
   email: string;
   owner_name: string;
   owner_phone: string;
+  owner_photo_url?: string | null;
   slogan?: string | null;
   phone?: string | null;
 }
@@ -25,6 +26,7 @@ export interface UpdateCompanyParams {
   email?: string;
   owner_name?: string;
   owner_phone?: string;
+  owner_photo_url?: string | null;
   opening_time?: string | null;
   closing_time?: string | null;
   customization_enabled?: boolean;
@@ -111,6 +113,7 @@ export const companyService = {
       email: params.email,
       owner_name: params.owner_name,
       owner_phone: params.owner_phone,
+      owner_photo_url: params.owner_photo_url ?? null,
       slogan: params.slogan || null,
       phone: params.phone ?? null,
     };

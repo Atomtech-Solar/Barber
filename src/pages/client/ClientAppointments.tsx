@@ -183,11 +183,11 @@ const ClientAppointments = () => {
       <section>
         <h2 className="flex items-center gap-2 text-lg font-semibold mb-4">
           <Calendar size={20} className="text-primary" />
-          Próximos agendamentos
+          Agendamentos
         </h2>
         {upcoming.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-muted/20 p-12 text-center">
-            <p className="text-muted-foreground">Nenhum agendamento futuro</p>
+            <p className="text-muted-foreground">Nenhum agendamento pendente</p>
             {currentCompany?.slug && (
               <Button
                 variant="link"
@@ -217,11 +217,11 @@ const ClientAppointments = () => {
       <section>
         <h2 className="flex items-center gap-2 text-lg font-semibold mb-4">
           <Clock size={20} className="text-muted-foreground" />
-          Histórico
+          Histórico (finalizados)
         </h2>
         {history.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-muted/20 p-8 text-center">
-            <p className="text-muted-foreground text-sm">Nenhum agendamento anterior</p>
+            <p className="text-muted-foreground text-sm">Nenhum agendamento finalizado</p>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -338,7 +338,8 @@ function RescheduleModal({
     enabled: !!companyId && !!dateStr,
   });
 
-  const slots = slotsData?.data ?? [];
+  const allSlots = slotsData?.data ?? [];
+  const slots = allSlots.filter((s) => s.available !== false);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">

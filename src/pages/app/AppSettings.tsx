@@ -100,10 +100,25 @@ const AppSettings = () => {
       ? `${window.location.origin}/site/${currentCompany.slug}`
       : null;
 
-  const copyLandingUrl = () => {
+  const copyLandingUrl = async () => {
     if (!landingUrl) return;
-    void navigator.clipboard.writeText(landingUrl);
-    toast.success("Link copiado para a área de transferência.");
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(landingUrl);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = landingUrl;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      toast.success("Link copiado para a área de transferência.");
+    } catch {
+      toast.error("Não foi possível copiar o link.");
+    }
   };
 
   const openLanding = () => {

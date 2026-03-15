@@ -16,6 +16,10 @@ const schema = z
     email: z.string().min(1, "Email é obrigatório").email("Email inválido"),
     owner_name: z.string().min(1, "Nome do responsável é obrigatório"),
     owner_phone: z.string().min(14, "Telefone inválido"),
+    owner_photo_url: z
+      .string()
+      .optional()
+      .refine((v) => !v || /^https?:\/\/.+/.test(v), { message: "URL inválida" }),
     slogan: z.string().max(120, "Máximo 120 caracteres").optional(),
     logo_url: z
       .string()
@@ -30,7 +34,7 @@ const schema = z
 export type CompanyCreateFormValues = z.infer<typeof schema>;
 
 interface CompanyCreateFormProps {
-  onSubmit: (values: CompanyCreateFormValues & { logo_url?: string }) => Promise<void>;
+  onSubmit: (values: CompanyCreateFormValues & { logo_url?: string; owner_photo_url?: string }) => Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
 }
@@ -40,6 +44,11 @@ export function CompanyCreateForm({ onSubmit, onCancel, isLoading }: CompanyCrea
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [ownerPhotoSource, setOwnerPhotoSource] = useState<"url" | "upload">("url");
+  const [ownerPhotoPreview, setOwnerPhotoPreview] = useState<string | null>(null);
+  const [ownerPhotoUploadError, setOwnerPhotoUploadError] = useState<string | null>(null);
+  const ownerPhotoFileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -56,12 +65,14 @@ export function CompanyCreateForm({ onSubmit, onCancel, isLoading }: CompanyCrea
       email: "",
       owner_name: "",
       owner_phone: "",
+      owner_photo_url: "",
       slogan: "",
       logo_url: "",
     },
   });
 
   const watchedLogoUrl = watch("logo_url");
+  const watchedOwnerPhotoUrl = watch("owner_photo_url");
   const watchedCnpj = watch("cnpj");
   const watchedOwnerPhone = watch("owner_phone");
 
@@ -118,12 +129,59 @@ export function CompanyCreateForm({ onSubmit, onCancel, isLoading }: CompanyCrea
     e.target.value = "";
   };
 
+  const handleOwnerPhotoUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value;
+    setValue("owner_photo_url", url, { shouldValidate: true });
+    setOwnerPhotoPreview(url || null);
+  };
+
+  const handleOwnerPhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOwnerPhotoUploadError(null);
+
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!validTypes.includes(file.type)) {
+      setOwnerPhotoUploadError("Formato inválido. Use JPG, PNG, WebP ou GIF.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setOwnerPhotoUploadError("Imagem deve ter no máximo 2MB.");
+      return;
+    }
+
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `owner-photos/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+      const { data, error } = await supabase.storage
+        .from("company-logos")
+        .upload(path, file, { upsert: false });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from("company-logos")
+        .getPublicUrl(data.path);
+
+      setValue("owner_photo_url", urlData.publicUrl, { shouldValidate: true });
+      setOwnerPhotoPreview(urlData.publicUrl);
+    } catch (err) {
+      setOwnerPhotoUploadError(
+        err instanceof Error ? err.message : "Erro ao enviar imagem. Use URL como alternativa."
+      );
+    }
+    e.target.value = "";
+  };
+
   const effectivePreview = logoPreview ?? (watchedLogoUrl || null);
+  const effectiveOwnerPhotoPreview = ownerPhotoPreview ?? (watchedOwnerPhotoUrl || null);
 
   const onFormSubmit = handleSubmit(async (values) => {
     await onSubmit({
       ...values,
       logo_url: values.logo_url || undefined,
+      owner_photo_url: values.owner_photo_url || undefined,
     });
   });
 
@@ -239,6 +297,67 @@ export function CompanyCreateForm({ onSubmit, onCancel, isLoading }: CompanyCrea
         />
         {errors.owner_name && (
           <p className="text-sm text-destructive">{errors.owner_name.message}</p>
+        )}
+      </div>
+
+      {/* Foto do responsável */}
+      <div className="space-y-2">
+        <Label>Foto do responsável (opcional)</Label>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={ownerPhotoSource === "url" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setOwnerPhotoSource("url")}
+          >
+            <Link2 size={14} className="mr-1" />
+            Link
+          </Button>
+          <Button
+            type="button"
+            variant={ownerPhotoSource === "upload" ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setOwnerPhotoSource("upload");
+              ownerPhotoFileInputRef.current?.click();
+            }}
+          >
+            <ImagePlus size={14} className="mr-1" />
+            Upload
+          </Button>
+          <input
+            ref={ownerPhotoFileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleOwnerPhotoFileUpload}
+          />
+        </div>
+        {ownerPhotoSource === "url" && (
+          <Input
+            placeholder="https://exemplo.com/foto-responsavel.jpg"
+            {...register("owner_photo_url")}
+            onChange={(e) => {
+              register("owner_photo_url").onChange(e);
+              handleOwnerPhotoUrlChange(e);
+            }}
+          />
+        )}
+        {errors.owner_photo_url && (
+          <p className="text-sm text-destructive">{errors.owner_photo_url.message}</p>
+        )}
+        {ownerPhotoUploadError && (
+          <p className="text-sm text-destructive">{ownerPhotoUploadError}</p>
+        )}
+        {effectiveOwnerPhotoPreview && (
+          <div className="mt-2 w-20 h-20 rounded-full border border-border overflow-hidden bg-muted">
+            <img
+              src={effectiveOwnerPhotoPreview}
+              alt="Preview"
+              className="w-full h-full object-cover"
+              onError={() => setOwnerPhotoPreview(null)}
+            />
+          </div>
         )}
       </div>
 

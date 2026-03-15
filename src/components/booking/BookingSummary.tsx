@@ -1,10 +1,10 @@
-import { Calendar, Clock, Phone, Scissors, User, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BookingSummaryProps {
   companyName?: string;
   serviceName?: string;
   professionalName?: string;
+  professionalSpecialty?: string | null;
   clientName?: string;
   clientPhone?: string;
   date?: string;
@@ -19,6 +19,7 @@ export function BookingSummary({
   companyName,
   serviceName,
   professionalName,
+  professionalSpecialty,
   clientName,
   clientPhone,
   date,
@@ -38,6 +39,19 @@ export function BookingSummary({
     return `${day}/${m}`;
   };
 
+  const formatPrice = (v: number) =>
+    new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      minimumFractionDigits: 2,
+    }).format(v);
+
+  const professionalLine = professionalName
+    ? professionalSpecialty
+      ? `${professionalName} - ${professionalSpecialty}`
+      : professionalName
+    : "";
+
   return (
     <div
       className={cn(
@@ -49,57 +63,44 @@ export function BookingSummary({
       <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
         Resumo
       </p>
-      <div className={cn("space-y-1.5", compact && "space-y-1")}>
-        {companyName && (
-          <div className="flex items-center gap-2 text-sm">
-            <Scissors size={14} className="text-muted-foreground shrink-0" />
-            <span className="truncate">{companyName}</span>
-          </div>
+      <div className={cn("space-y-1.5 text-sm", compact && "space-y-1")}>
+        {professionalLine && (
+          <p>
+            <span className="text-muted-foreground">Profissional:</span> {professionalLine}
+          </p>
         )}
         {serviceName && (
-          <div className="flex items-center gap-2 text-sm">
-            <Scissors size={14} className="text-muted-foreground shrink-0" />
-            <span className="truncate">{serviceName}</span>
-          </div>
-        )}
-        {professionalName && (
-          <div className="flex items-center gap-2 text-sm">
-            <User size={14} className="text-muted-foreground shrink-0" />
-            <span className="truncate">{professionalName}</span>
-          </div>
+          <p>
+            <span className="text-muted-foreground">Serviço(s):</span> {serviceName}
+          </p>
         )}
         {clientName && (
-          <div className="flex items-center gap-2 text-sm">
-            <UserCircle size={14} className="text-muted-foreground shrink-0" />
-            <span className="truncate">{clientName}</span>
-          </div>
+          <p>
+            <span className="text-muted-foreground">Usuário:</span> {clientName}
+          </p>
         )}
         {clientPhone && (
-          <div className="flex items-center gap-2 text-sm">
-            <Phone size={14} className="text-muted-foreground shrink-0" />
-            <span>{clientPhone}</span>
-          </div>
+          <p>
+            <span className="text-muted-foreground">Número:</span> {clientPhone}
+          </p>
         )}
         {date && (
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar size={14} className="text-muted-foreground shrink-0" />
-            <span>{formatDate(date)}</span>
-          </div>
+          <p>
+            <span className="text-muted-foreground">Data:</span> {formatDate(date)}
+          </p>
         )}
         {time && (
-          <div className="flex items-center gap-2 text-sm">
-            <Clock size={14} className="text-muted-foreground shrink-0" />
-            <span>
-              {time}
-              {duration ? ` · ${duration} min` : ""}
-            </span>
-          </div>
+          <p>
+            <span className="text-muted-foreground">Horário:</span> {time}
+            {duration != null ? ` - ${duration} minutos` : ""}
+          </p>
         )}
       </div>
       {totalPrice != null && totalPrice > 0 && (
-        <p className="mt-3 pt-2 border-t border-border font-bold text-primary">
-          R$ {totalPrice.toFixed(2)}
-        </p>
+        <>
+          <hr className="my-3 border-border" />
+          <p className="text-xl font-bold text-primary">{formatPrice(totalPrice)}</p>
+        </>
       )}
     </div>
   );
