@@ -252,7 +252,7 @@ export const dashboardService = {
     (data ?? []).forEach((row) => {
       const source = String(row.source ?? "");
       const amount = Number(row.amount ?? 0);
-      if (source === "product") totals.Pix += amount;
+      if (source === "product" || source === "product_sale") totals.Pix += amount;
       else if (source === "manual") totals.Dinheiro += amount;
       else if (source === "appointment") totals.Cartao += amount;
       else totals.Outros += amount;

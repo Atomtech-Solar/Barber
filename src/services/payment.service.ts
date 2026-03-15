@@ -26,6 +26,8 @@ export interface MonthPreview {
   salario_fixo: number;
   valor_final: number;
   fechado: boolean;
+  /** Número de agendamentos com status = completed no mês */
+  atendimentos_count: number;
 }
 
 function toIsoMonth(date: Date): string {
@@ -209,12 +211,18 @@ export const paymentService = {
     return { error };
   },
 
+  /**
+   * Faturamento do profissional no mês: soma dos valores de financial_records
+   * (type=income, source=appointment, is_valid=true) cujo agendamento pertence ao profissional.
+   * Fluxo: financial_records → appointment_id → appointments → professional_id.
+   * Apenas dados reais; sem mocks.
+   */
   async getMonthlyRevenue(companyId: string, professionalId: string, monthStr: string): Promise<number> {
     const mes = parseISO(monthStr + "-01");
-    const start = toIsoMonth(startOfMonth(mes));
-    const end = toIsoMonth(endOfMonth(mes));
+    const periodStart = `${format(startOfMonth(mes), "yyyy-MM-dd")}T00:00:00`;
+    const periodEnd = `${format(endOfMonth(mes), "yyyy-MM-dd")}T23:59:59`;
 
-    const { data: records } = await supabase
+    const { data: records, error: errRecords } = await supabase
       .from("financial_records")
       .select("appointment_id, amount")
       .eq("company_id", companyId)
@@ -222,26 +230,64 @@ export const paymentService = {
       .eq("source", "appointment")
       .eq("is_valid", true)
       .not("appointment_id", "is", null)
-      .gte("created_at", `${start}T00:00:00`)
-      .lte("created_at", `${end}T23:59:59`);
+      .gte("created_at", periodStart)
+      .lte("created_at", periodEnd);
 
-    const appointmentIds = [...new Set((records ?? []).map((r) => r.appointment_id).filter(Boolean))];
-    if (appointmentIds.length === 0) return 0;
+    if (errRecords || !records?.length) return 0;
 
-    const { data: appointments } = await supabase
+    const appointmentIds = [...new Set(records.map((r) => r.appointment_id).filter(Boolean) as string[])];
+
+    const { data: appointments, error: errAppointments } = await supabase
       .from("appointments")
       .select("id, professional_id")
       .eq("company_id", companyId)
       .in("id", appointmentIds);
 
-    const aptByProf = (appointments ?? []).filter((a) => a.professional_id === professionalId);
-    const recordByApt = Object.fromEntries(
-      (records ?? [])
-        .filter((r) => r.appointment_id)
-        .map((r) => [r.appointment_id!, Number(r.amount)])
+    if (errAppointments || !appointments?.length) return 0;
+
+    const professionalAppointmentIds = new Set(
+      appointments.filter((a) => a.professional_id === professionalId).map((a) => a.id)
     );
 
-    return aptByProf.reduce((sum, apt) => sum + (recordByApt[apt.id] ?? 0), 0);
+    const amountByAppointmentId = new Map<string, number>();
+    for (const r of records) {
+      if (!r.appointment_id) continue;
+      const amt = Number(r.amount);
+      if (!Number.isFinite(amt)) continue;
+      amountByAppointmentId.set(r.appointment_id, (amountByAppointmentId.get(r.appointment_id) ?? 0) + amt);
+    }
+
+    let total = 0;
+    for (const aptId of professionalAppointmentIds) {
+      total += amountByAppointmentId.get(aptId) ?? 0;
+    }
+    return total;
+  },
+
+  /**
+   * Conta quantos agendamentos concluídos o profissional realizou no mês.
+   * appointments.professional_id = profissional, status = 'completed', date no mês.
+   */
+  async getMonthlyCompletedCount(
+    companyId: string,
+    professionalId: string,
+    monthStr: string
+  ): Promise<number> {
+    const mes = parseISO(monthStr + "-01");
+    const start = format(startOfMonth(mes), "yyyy-MM-dd");
+    const end = format(endOfMonth(mes), "yyyy-MM-dd");
+
+    const { count, error } = await supabase
+      .from("appointments")
+      .select("*", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("professional_id", professionalId)
+      .eq("status", "completed")
+      .gte("date", start)
+      .lte("date", end);
+
+    if (error) return 0;
+    return count ?? 0;
   },
 
   async getMonthlyPreview(
@@ -262,7 +308,10 @@ export const paymentService = {
     const salarioFixo = Number(settings?.salario_fixo_mensal ?? 0);
     const percentual = Number(settings?.percentual_comissao_padrao ?? 20);
 
-    const totalFaturado = await this.getMonthlyRevenue(companyId, professionalId, monthStr);
+    const [totalFaturado, atendimentosCount] = await Promise.all([
+      this.getMonthlyRevenue(companyId, professionalId, monthStr),
+      this.getMonthlyCompletedCount(companyId, professionalId, monthStr),
+    ]);
     const calc = calcPaymentValues(totalFaturado, salarioFixo, percentual);
 
     const { data: summary } = await supabase
@@ -281,6 +330,7 @@ export const paymentService = {
       salario_fixo: salarioFixo,
       valor_final: calc.valor_final,
       fechado: summary?.fechado ?? false,
+      atendimentos_count: atendimentosCount,
     };
   },
 

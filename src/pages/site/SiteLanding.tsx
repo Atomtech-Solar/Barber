@@ -43,6 +43,9 @@ const SiteLanding = () => {
     queryKey: ["company-landing-settings", companyId],
     queryFn: () => companyLandingService.getByCompanyId(companyId),
     enabled: !!companyId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const landingSettings = landingSettingsData?.data ?? null;
@@ -99,6 +102,10 @@ const SiteLanding = () => {
       ? company.dashboard_theme
       : "dark") as "dark" | "light";
 
+  const imageTs = landingSettings?.updated_at ?? "";
+  const bust = (url: string | null | undefined) =>
+    url && url.trim() ? `${url}${url.includes("?") ? "&" : "?"}_t=${imageTs}` : url;
+
   return (
     <SiteThemeProvider initialTheme={initialTheme}>
       <div className="min-h-screen bg-background">
@@ -108,7 +115,7 @@ const SiteLanding = () => {
           bookingUrl={bookingUrl}
           title={landingSettings?.hero_title}
           subtitle={landingSettings?.hero_subtitle}
-          image={landingSettings?.hero_image_url}
+          image={bust(landingSettings?.hero_image_url)}
         />
         <SiteAbout
           company={company}
@@ -116,10 +123,10 @@ const SiteLanding = () => {
           title={landingSettings?.about_title}
           titleAccent={landingSettings?.about_title_accent}
           images={[
-            landingSettings?.about_image_1_url ?? landingSettings?.about_image_url ?? null,
-            landingSettings?.about_image_2_url ?? null,
-            landingSettings?.about_image_3_url ?? null,
-            landingSettings?.about_image_4_url ?? null,
+            bust(landingSettings?.about_image_1_url ?? landingSettings?.about_image_url ?? null),
+            bust(landingSettings?.about_image_2_url),
+            bust(landingSettings?.about_image_3_url),
+            bust(landingSettings?.about_image_4_url),
           ]}
         />
         <SiteServices services={services} bookingUrl={bookingUrl} />
@@ -129,14 +136,14 @@ const SiteLanding = () => {
           images={
             landingSettings
               ? [
-                  landingSettings.gallery_image_1_url,
-                  landingSettings.gallery_image_2_url,
-                  landingSettings.gallery_image_3_url,
-                  landingSettings.gallery_image_4_url,
-                  landingSettings.gallery_image_5_url,
-                  landingSettings.gallery_image_6_url,
-                  landingSettings.gallery_image_7_url,
-                  landingSettings.gallery_image_8_url,
+                  bust(landingSettings.gallery_image_1_url),
+                  bust(landingSettings.gallery_image_2_url),
+                  bust(landingSettings.gallery_image_3_url),
+                  bust(landingSettings.gallery_image_4_url),
+                  bust(landingSettings.gallery_image_5_url),
+                  bust(landingSettings.gallery_image_6_url),
+                  bust(landingSettings.gallery_image_7_url),
+                  bust(landingSettings.gallery_image_8_url),
                 ]
               : undefined
           }

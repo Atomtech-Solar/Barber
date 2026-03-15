@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/contexts/TenantContext";
 import { RouteErrorBoundary } from "@/components/shared/RouteErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,8 +9,9 @@ import { applyCompanyTheme, resetAppTheme } from "@/lib/companyTheme";
 import {
   LayoutDashboard, Calendar, Users, Scissors, UserCheck, DollarSign,
   Package, BarChart3, Settings, Plus, ChevronLeft, Menu,
-  ChevronRight, LogOut, Percent
+  ChevronRight, LogOut, Percent, RefreshCw
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -35,13 +37,42 @@ const navItems = [
 ];
 
 const DashboardLayout = () => {
+  const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const location = useLocation();
   const { currentCompany } = useTenant();
   const { profile, user, signOut } = useAuth();
   const { hasAccessToPage, hasAccessToPath, isLoading: accessLoading } = useCompanyPageAccess();
   const canAccessCurrentPath = hasAccessToPath(location.pathname);
+
+  const handleRefresh = useCallback(async () => {
+    if (!currentCompany?.id || refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["appointments"] }),
+        queryClient.refetchQueries({ queryKey: ["dashboard-summary"] }),
+        queryClient.refetchQueries({ queryKey: ["dashboard-revenue"] }),
+        queryClient.refetchQueries({ queryKey: ["dashboard-activity"] }),
+        queryClient.refetchQueries({ queryKey: ["dashboard-performance"] }),
+        queryClient.refetchQueries({ queryKey: ["dashboard-services"] }),
+        queryClient.refetchQueries({ queryKey: ["financial"] }),
+        queryClient.refetchQueries({ queryKey: ["clients"] }),
+        queryClient.refetchQueries({ queryKey: ["services"] }),
+        queryClient.refetchQueries({ queryKey: ["professionals"] }),
+        queryClient.refetchQueries({ queryKey: ["stock-products"] }),
+        queryClient.refetchQueries({ queryKey: ["payment-professionals"] }),
+        queryClient.refetchQueries({ queryKey: ["company-member-access"] }),
+      ]);
+      toast.success("Dados atualizados");
+    } catch {
+      toast.error("Erro ao atualizar. Tente novamente.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [currentCompany?.id, queryClient, refreshing]);
 
   useEffect(() => {
     applyCompanyTheme(currentCompany);
@@ -145,6 +176,22 @@ const DashboardLayout = () => {
             </h2>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing || !currentCompany?.id}
+              title="Atualizar dados"
+              className="shrink-0"
+            >
+              <RefreshCw
+                size={16}
+                className={refreshing ? "animate-spin md:mr-2" : "md:mr-2"}
+              />
+              <span className="hidden md:inline">
+                {refreshing ? "Atualizando..." : "Atualizar"}
+              </span>
+            </Button>
             <span className="text-sm text-muted-foreground hidden lg:inline">
               {profile?.full_name ?? user?.email ?? "Usuário"}
             </span>

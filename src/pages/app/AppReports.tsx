@@ -51,6 +51,8 @@ import {
   XCircle,
   Percent,
   Download,
+  Package,
+  Wallet,
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { reportsService } from "@/services/reports.service";
@@ -206,8 +208,22 @@ const AppReports = () => {
     enabled: !!companyId,
   });
 
+  const { data: rankingData } = useQuery({
+    queryKey: ["reports-ranking", companyId, filters],
+    queryFn: () => reportsService.getRankingProfissionais(companyId, filters),
+    enabled: !!companyId,
+  });
+  const { data: horariosData } = useQuery({
+    queryKey: ["reports-horarios", companyId, filters],
+    queryFn: () => reportsService.getHorariosMaisMovimentados(companyId, filters),
+    enabled: !!companyId,
+  });
+
   const metrics = metricsData?.data ?? {
     faturamentoTotal: 0,
+    faturamentoServicos: 0,
+    faturamentoProdutos: 0,
+    lucroEstimado: 0,
     totalAgendamentos: 0,
     ticketMedio: 0,
     servicosRealizados: 0,
@@ -216,6 +232,8 @@ const AppReports = () => {
   };
   const faturamentoPorPeriodo = faturamentoData?.data ?? [];
   const servicosMaisVendidos = servicosData?.data ?? [];
+  const rankingProfissionais = rankingData?.data ?? [];
+  const horariosMaisMovimentados = horariosData?.data ?? [];
   const produtividade = produtividadeData?.data ?? [];
   const statusDistribuicao = statusData?.data ?? [];
   const tableRows = tableData?.data ?? [];
@@ -365,34 +383,34 @@ const AppReports = () => {
           ) : (
             <>
               <CardWidget
-                title="Faturamento Total"
-                value={`R$ ${metrics.faturamentoTotal.toFixed(2)}`}
+                title="Faturamento serviços"
+                value={`R$ ${(metrics.faturamentoServicos ?? 0).toFixed(2)}`}
+                icon={Scissors}
+              />
+              <CardWidget
+                title="Faturamento produtos"
+                value={`R$ ${(metrics.faturamentoProdutos ?? 0).toFixed(2)}`}
+                icon={Package}
+              />
+              <CardWidget
+                title="Faturamento total"
+                value={`R$ ${(metrics.faturamentoTotal ?? 0).toFixed(2)}`}
                 icon={DollarSign}
               />
               <CardWidget
-                title="Total Agendamentos"
+                title="Lucro estimado"
+                value={`R$ ${(metrics.lucroEstimado ?? 0).toFixed(2)}`}
+                icon={Wallet}
+              />
+              <CardWidget
+                title="Total agendamentos"
                 value={String(metrics.totalAgendamentos)}
                 icon={Calendar}
               />
               <CardWidget
-                title="Ticket Médio"
-                value={`R$ ${metrics.ticketMedio.toFixed(2)}`}
+                title="Ticket médio"
+                value={`R$ ${(metrics.ticketMedio ?? 0).toFixed(2)}`}
                 icon={TrendingUp}
-              />
-              <CardWidget
-                title="Serviços Realizados"
-                value={String(metrics.servicosRealizados)}
-                icon={Scissors}
-              />
-              <CardWidget
-                title="Cancelamentos"
-                value={String(metrics.cancelamentos)}
-                icon={XCircle}
-              />
-              <CardWidget
-                title="Taxa de Conversão"
-                value={`${metrics.taxaConversao.toFixed(1)}%`}
-                icon={Percent}
               />
             </>
           )}
@@ -427,57 +445,23 @@ const AppReports = () => {
             </div>
 
             <div className="bg-card border border-border rounded-xl p-5">
-              <h3 className="font-semibold mb-4">Serviços Mais Vendidos</h3>
-              {svcLoading ? (
-                <Skeleton className="h-64 w-full" />
-              ) : servicosMaisVendidos.length === 0 ? (
+              <h3 className="font-semibold mb-4">Horários mais movimentados</h3>
+              {horariosMaisMovimentados.length === 0 ? (
                 <p className="text-muted-foreground text-sm py-8">Sem dados</p>
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={servicosMaisVendidos} layout="vertical" margin={{ left: 80 }}>
+                  <BarChart data={horariosMaisMovimentados} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis
-                      type="category"
-                      dataKey="serviceName"
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                      width={70}
-                    />
-                    <Tooltip />
-                    <Bar dataKey="quantidade" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                    <XAxis dataKey="hora" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip formatter={(v: number) => [v, "Atendimentos"]} />
+                    <Bar dataKey="count" fill="#10b981" name="Atendimentos" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
             </div>
 
-            <div className="bg-card border border-border rounded-xl p-5">
-              <h3 className="font-semibold mb-4">Produtividade por Funcionário</h3>
-              {prodLoading ? (
-                <Skeleton className="h-64 w-full" />
-              ) : produtividade.length === 0 ? (
-                <p className="text-muted-foreground text-sm py-8">Sem dados</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={produtividade}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="professionalName" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `R$${v}`} />
-                    <Tooltip
-                      formatter={(v: number, name: string) =>
-                        name === "valorGerado" ? [`R$ ${Number(v).toFixed(2)}`, "Valor"] : [v, "Atendimentos"]
-                      }
-                    />
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="atendimentos" fill="#3b82f6" name="Atendimentos" radius={[4, 4, 0, 0]} />
-                    <Bar yAxisId="right" dataKey="valorGerado" fill="#10b981" name="Valor (R$)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-
-            <div className="bg-card border border-border rounded-xl p-5">
+            <div className="bg-card border border-border rounded-xl p-5 lg:col-span-2">
               <h3 className="font-semibold mb-4">Status dos Agendamentos</h3>
               {statusLoading ? (
                 <Skeleton className="h-64 w-full" />
@@ -511,9 +495,74 @@ const AppReports = () => {
           </div>
         )}
 
-        {/* 4. Tabela financeira */}
+        {/* 4. Rankings (tabelas) */}
+        {hasData && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <h3 className="font-semibold p-5 pb-3">Ranking de profissionais</h3>
+              <div className="px-5 pb-5">
+                {rankingProfissionais.length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-6">Sem dados</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Profissional</TableHead>
+                        <TableHead className="text-right">Atendimentos</TableHead>
+                        <TableHead className="text-right">Faturamento</TableHead>
+                        <TableHead className="text-right">Ticket médio</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rankingProfissionais.map((r) => (
+                        <TableRow key={r.professionalId}>
+                          <TableCell className="font-medium">{r.professionalName}</TableCell>
+                          <TableCell className="text-right">{r.atendimentos}</TableCell>
+                          <TableCell className="text-right">R$ {r.faturamentoGerado.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">R$ {r.ticketMedio.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <h3 className="font-semibold p-5 pb-3">Serviços mais vendidos</h3>
+              <div className="px-5 pb-5">
+                {servicosMaisVendidos.length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-6">Sem dados</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Serviço</TableHead>
+                        <TableHead className="text-right">Quantidade</TableHead>
+                        <TableHead className="text-right">Faturamento</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {servicosMaisVendidos.map((s) => (
+                        <TableRow key={s.serviceId}>
+                          <TableCell className="font-medium">{s.serviceName}</TableCell>
+                          <TableCell className="text-right">{s.quantidade}</TableCell>
+                          <TableCell className="text-right">
+                            R$ {(s.faturamentoGerado ?? 0).toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 5. Tabela detalhada de agendamentos */}
         <div className="bg-card border border-border rounded-xl overflow-hidden mb-6">
-          <h3 className="font-semibold p-5 pb-0">Relatório Financeiro Detalhado</h3>
+          <h3 className="font-semibold p-5 pb-0">Tabela detalhada de agendamentos</h3>
           <div className="p-5">
             {tableLoading ? (
               <Skeleton className="h-64 w-full" />

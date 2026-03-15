@@ -32,23 +32,31 @@ export function StockProductHistoryModal({
   companyId,
   product,
 }: StockProductHistoryModalProps) {
-  const { data: movements, isLoading } = useQuery({
+  const { data: productData, isLoading: loadingProduct } = useQuery({
+    queryKey: ["stock-product", companyId, product?.id],
+    queryFn: () => stockService.getProductWithQuantity(companyId, product!.id),
+    enabled: !!open && !!companyId && !!product?.id,
+  });
+
+  const { data: movements, isLoading: loadingMovements } = useQuery({
     queryKey: ["stock-movements", product?.id],
     queryFn: () =>
       product ? stockService.listMovementsByProduct(companyId, product.id) : Promise.resolve({ data: [] }),
     enabled: !!open && !!product,
   });
 
+  const displayProduct = productData?.data ?? product;
   const list = movements?.data ?? [];
+  const isLoading = loadingProduct || loadingMovements;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            {product?.image_url ? (
+            {displayProduct?.image_url ? (
               <img
-                src={product.image_url}
+                src={displayProduct.image_url}
                 alt=""
                 className="h-12 w-12 rounded-lg object-cover"
               />
@@ -58,10 +66,10 @@ export function StockProductHistoryModal({
               </div>
             )}
             <div>
-              <p>{product?.name}</p>
+              <p>{displayProduct?.name}</p>
               <p className="text-sm font-normal text-muted-foreground">
-                Estoque atual: {product?.current_quantity ?? 0}{" "}
-                {product ? getUnitLabel(product.unit_type) : ""} · Mín: {product?.minimum_stock ?? 0}
+                Estoque atual: {displayProduct?.current_quantity ?? 0}{" "}
+                {displayProduct ? getUnitLabel(displayProduct.unit_type) : ""} · Mín: {displayProduct?.minimum_stock ?? 0}
               </p>
             </div>
           </DialogTitle>
@@ -92,8 +100,9 @@ export function StockProductHistoryModal({
                             : "text-muted-foreground"
                         }
                       >
-                        {m.movement_type === "entry" ? "+" : ""}
+                        {m.movement_type === "entry" ? "+" : m.movement_type === "adjustment" ? "=" : "-"}
                         {m.quantity}
+                        {displayProduct ? ` ${getUnitLabel(displayProduct.unit_type)}` : ""}
                       </span>
                     </p>
                     {m.reason && (

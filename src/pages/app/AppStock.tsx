@@ -110,11 +110,13 @@ const AppStock = () => {
         initial_packages: parseFloat(values.initial_packages),
         minimum_stock: parseFloat(values.minimum_stock),
         image_url: values.image_url || undefined,
-        cost_price: values.cost_price ? parseFloat(values.cost_price) : undefined,
+        cost_price: parseFloat(values.cost_price),
         sale_price: values.sale_price ? parseFloat(values.sale_price) : undefined,
+        created_by: user?.id,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stock-products"] });
+      queryClient.invalidateQueries({ queryKey: ["financial"] });
       setProductModalOpen(false);
       toast.success("Produto cadastrado!");
     },
@@ -186,6 +188,9 @@ const AppStock = () => {
 
   const handleMovementSaved = () => {
     queryClient.invalidateQueries({ queryKey: ["stock-products"] });
+    queryClient.invalidateQueries({ queryKey: ["stock-movements"] });
+    queryClient.invalidateQueries({ queryKey: ["stock-product"] });
+    queryClient.invalidateQueries({ queryKey: ["financial"] });
     toast.success("Movimentação registrada!");
   };
 

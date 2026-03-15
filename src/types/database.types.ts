@@ -234,7 +234,12 @@ export interface StockProductWithQuantity extends StockProduct {
 }
 
 export type FinancialType = 'income' | 'expense';
-export type FinancialSource = 'appointment' | 'manual' | 'product';
+export type FinancialSource =
+  | 'appointment'
+  | 'manual'
+  | 'product'
+  | 'product_purchase'
+  | 'product_sale';
 
 export interface FinancialRecord {
   id: string;

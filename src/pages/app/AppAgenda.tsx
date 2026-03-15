@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PageContainer from "@/components/shared/PageContainer";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/hooks/useAuth";
 import { bookingService } from "@/services/booking.service";
@@ -14,6 +14,13 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import type { Appointment, ProfessionalWithServices, Service } from "@/types/database.types";
 import { AppointmentFormModal, type FormValues } from "@/components/app/AppointmentFormModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const SLOT_MINUTES = 30;
 const DEFAULT_OPENING_TIME = "09:00";
@@ -77,6 +84,7 @@ const AppAgenda = () => {
   const [selectedDayOffset, setSelectedDayOffset] = useState<number>(0);
   const [newSlot, setNewSlot] = useState<{ date: string; startTime: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [completeConfirmId, setCompleteConfirmId] = useState<string | null>(null);
 
   const startDate = format(weekStart, "yyyy-MM-dd");
   const endDate = format(addWeeks(weekStart, 1), "yyyy-MM-dd");
@@ -109,6 +117,13 @@ const AppAgenda = () => {
     queryKey: ["appointment", editingId],
     queryFn: () => (editingId ? bookingService.getById(editingId) : Promise.resolve({ data: null })),
     enabled: !!editingId,
+  });
+
+  const { data: completeConfirmAppointmentData } = useQuery({
+    queryKey: ["appointment", completeConfirmId],
+    queryFn: () =>
+      completeConfirmId ? bookingService.getById(completeConfirmId) : Promise.resolve({ data: null }),
+    enabled: !!completeConfirmId,
   });
 
   const professionals: ProfessionalWithServices[] = professionalsData?.data ?? [];
@@ -229,6 +244,26 @@ const AppAgenda = () => {
     },
     onError: (e: Error) => {
       toast.error(e.message || "Erro ao remover agendamento.");
+    },
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: (id: string) =>
+      bookingService.update(id, { status: "completed", updated_by: user?.id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["financial"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-revenue"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-activity"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-performance"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-services"] });
+      setEditingId(null);
+      setCompleteConfirmId(null);
+      toast.success("Atendimento concluído! Registro financeiro atualizado.");
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Erro ao concluir atendimento.");
     },
   });
 
@@ -474,7 +509,7 @@ const AppAgenda = () => {
                                 return (
                                   <div
                                     key={`${apt.id}-${slotTime}`}
-                                    className={`rounded px-2 py-1 text-[10px] cursor-pointer transition-opacity hover:opacity-90 border truncate ${variant} ${
+                                    className={`rounded px-2 py-1 text-[10px] cursor-pointer transition-opacity hover:opacity-90 border truncate relative group ${variant} ${
                                       recurring ? "ring-1 ring-amber-400/60" : ""
                                     }`}
                                     title={title}
@@ -483,7 +518,20 @@ const AppAgenda = () => {
                                       setEditingId(apt.id);
                                     }}
                                   >
-                                    <p className="font-medium truncate flex items-center gap-1">
+                                    {apt.status === "confirmed" && (
+                                      <button
+                                        type="button"
+                                        className="absolute top-0.5 right-0.5 p-0.5 rounded opacity-70 hover:opacity-100 hover:bg-white/20"
+                                        title="Concluir atendimento"
+                                        onClick={(ev) => {
+                                          ev.stopPropagation();
+                                          setCompleteConfirmId(apt.id);
+                                        }}
+                                      >
+                                        <CheckCircle size={12} />
+                                      </button>
+                                    )}
+                                    <p className="font-medium truncate flex items-center gap-1 pr-4">
                                       {clientName}
                                       {recurring && (
                                         <span
@@ -558,34 +606,56 @@ const AppAgenda = () => {
                         .filter(Boolean)
                         .join(" · ");
                       return (
-                        <button
+                        <div
                           key={`${apt.id}-${slotTime}-mobile`}
-                          className={`w-full text-left rounded px-2 py-1 text-xs border transition-opacity hover:opacity-90 ${variant} ${
+                          className={`rounded px-2 py-1 text-xs border transition-opacity ${variant} ${
                             recurring ? "ring-1 ring-amber-400/60" : ""
                           }`}
-                          title={title}
-                          onClick={() => setEditingId(apt.id)}
                         >
-                          <p className="font-medium truncate flex items-center gap-1">
-                            {clientName}
-                            {recurring && (
-                              <span
-                                className="shrink-0 rounded-full bg-amber-500/30 px-1"
-                                title="Cliente recorrente"
-                              >
-                                ★
-                              </span>
-                            )}
-                          </p>
-                          {apt.client_phone && (
-                            <p className="opacity-80 truncate text-[10px]">
-                              {apt.client_phone}
+                          <div
+                            className="w-full text-left"
+                            title={title}
+                            onClick={() => setEditingId(apt.id)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => e.key === "Enter" && setEditingId(apt.id)}
+                          >
+                            <p className="font-medium truncate flex items-center gap-1">
+                              {clientName}
+                              {recurring && (
+                                <span
+                                  className="shrink-0 rounded-full bg-amber-500/30 px-1"
+                                  title="Cliente recorrente"
+                                >
+                                  ★
+                                </span>
+                              )}
                             </p>
+                            {apt.client_phone && (
+                              <p className="opacity-80 truncate text-[10px]">
+                                {apt.client_phone}
+                              </p>
+                            )}
+                            <p className="opacity-80 truncate">
+                              {profName} · {apt.duration_minutes}min
+                            </p>
+                          </div>
+                          {apt.status === "confirmed" && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              className="mt-1 w-full h-7 text-xs gap-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCompleteConfirmId(apt.id);
+                              }}
+                            >
+                              <CheckCircle size={12} />
+                              Concluir atendimento
+                            </Button>
                           )}
-                          <p className="opacity-80 truncate">
-                            {profName} · {apt.duration_minutes}min
-                          </p>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -633,9 +703,75 @@ const AppAgenda = () => {
         createdBy={user?.id ?? ""}
         onSubmit={(v) => updateMutation.mutateAsync(v)}
         onDelete={(id) => deleteMutation.mutateAsync(id)}
+        onComplete={(id) => completeMutation.mutateAsync(id)}
         isLoading={updateMutation.isPending}
         isDeleting={deleteMutation.isPending}
+        isCompleting={completeMutation.isPending}
       />
+
+      <Dialog open={!!completeConfirmId} onOpenChange={(o) => !o && setCompleteConfirmId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Concluir atendimento?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+          {completeConfirmAppointmentData?.data && (() => {
+            const apt = completeConfirmAppointmentData.data as Appointment & { service_ids?: string[] };
+            const serviceIds = apt.service_ids ?? [];
+            const completedServicesList = serviceIds
+              .map((id) => services.find((s) => s.id === id))
+              .filter((s): s is Service => !!s);
+            const totalValue = completedServicesList.reduce(
+              (sum, s) => sum + (Number(s.price) ?? 0),
+              0
+            );
+            return (
+              <>
+                <p className="text-sm text-muted-foreground">Serviços realizados:</p>
+                <ul className="text-sm list-disc list-inside space-y-1">
+                  {completedServicesList.length > 0 ? (
+                    completedServicesList.map((s) => (
+                      <li key={s.id}>
+                        {s.name} — R$ {Number(s.price).toFixed(2).replace(".", ",")}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-muted-foreground">Atendimento</li>
+                  )}
+                </ul>
+                <p className="text-sm font-medium pt-2 border-t">
+                  Valor total: R$ {totalValue.toFixed(2).replace(".", ",")}
+                </p>
+              </>
+            );
+          })()}
+          </div>
+          {completeConfirmId && !completeConfirmAppointmentData?.data && (
+            <p className="text-sm text-muted-foreground">Carregando...</p>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCompleteConfirmId(null)}
+              disabled={completeMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (completeConfirmId) {
+                  completeMutation.mutate(completeConfirmId);
+                }
+              }}
+              disabled={completeMutation.isPending || !completeConfirmAppointmentData?.data}
+            >
+              {completeMutation.isPending ? "Concluindo..." : "Confirmar conclusão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 };

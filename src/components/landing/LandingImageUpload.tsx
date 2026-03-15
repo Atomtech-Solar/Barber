@@ -39,6 +39,7 @@ export function LandingImageUpload({
 }: LandingImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewKey, setPreviewKey] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,10 +49,12 @@ export function LandingImageUpload({
     setError(null);
     if (!ALLOWED_TYPES.includes(file.type)) {
       setError("Use JPG, PNG, WebP ou GIF.");
+      e.target.value = "";
       return;
     }
     if (file.size > MAX_SIZE) {
       setError("Imagem deve ter no máximo 2MB.");
+      e.target.value = "";
       return;
     }
 
@@ -71,6 +74,7 @@ export function LandingImageUpload({
         .getPublicUrl(storagePath);
 
       onChange(urlData.publicUrl);
+      setPreviewKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao enviar imagem.");
     } finally {
@@ -79,6 +83,17 @@ export function LandingImageUpload({
     }
   };
 
+  const openFileDialog = () => {
+    if (inputRef.current) {
+      inputRef.current.value = "";
+      inputRef.current.click();
+    }
+  };
+
+  const previewSrc = value
+    ? `${value}${value.includes("?") ? "&" : "?"}_t=${previewKey}`
+    : "";
+
   return (
     <div className="space-y-2">
       {label ? <Label>{label}</Label> : null}
@@ -86,7 +101,7 @@ export function LandingImageUpload({
         <div className="w-32 h-24 rounded-lg border border-border bg-muted overflow-hidden shrink-0">
           {value ? (
             <img
-              src={value}
+              src={previewSrc}
               alt="Preview"
               className="w-full h-full object-cover"
             />
@@ -108,7 +123,7 @@ export function LandingImageUpload({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => inputRef.current?.click()}
+            onClick={openFileDialog}
             disabled={uploading}
           >
             <Upload size={16} className="mr-2" />

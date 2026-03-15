@@ -10,6 +10,9 @@ export interface ReportsFilters {
 
 export interface ReportMetrics {
   faturamentoTotal: number;
+  faturamentoServicos: number;
+  faturamentoProdutos: number;
+  lucroEstimado: number;
   totalAgendamentos: number;
   agendamentosConcluidos: number;
   ticketMedio: number;
@@ -17,6 +20,19 @@ export interface ReportMetrics {
   cancelamentos: number;
   confirmados: number;
   taxaConversao: number;
+}
+
+export interface RankingProfissional {
+  professionalId: string;
+  professionalName: string;
+  atendimentos: number;
+  faturamentoGerado: number;
+  ticketMedio: number;
+}
+
+export interface HorarioMovimentado {
+  hora: string;
+  count: number;
 }
 
 export interface FaturamentoPorPeriodoItem {
@@ -28,6 +44,7 @@ export interface ServicoMaisVendido {
   serviceId: string;
   serviceName: string;
   quantidade: number;
+  faturamentoGerado: number;
 }
 
 export interface ProdutividadeProfissional {
@@ -102,6 +119,9 @@ async function getAppointmentsWithDetails(
 
 export const reportsService = {
   async getMetrics(companyId: string, filters: ReportsFilters) {
+    const periodStart = `${filters.startDate}T00:00:00`;
+    const periodEnd = `${filters.endDate}T23:59:59`;
+
     let aptQuery = supabase
       .from("appointments")
       .select("id, status")
@@ -117,45 +137,75 @@ export const reportsService = {
         .eq("service_id", filters.serviceId);
       const ids = [...new Set(((svcLinks ?? []) as { appointment_id: string }[]).map((a) => a.appointment_id))];
       if (ids.length) aptQuery = aptQuery.in("id", ids);
-      else return { data: { faturamentoTotal: 0, totalAgendamentos: 0, agendamentosConcluidos: 0, ticketMedio: 0, servicosRealizados: 0, cancelamentos: 0, confirmados: 0, taxaConversao: 0 }, error: null };
+      else {
+        return {
+          data: {
+            faturamentoTotal,
+            faturamentoServicos,
+            faturamentoProdutos,
+            lucroEstimado,
+            totalAgendamentos: 0,
+            agendamentosConcluidos: 0,
+            ticketMedio: 0,
+            servicosRealizados: 0,
+            cancelamentos: 0,
+            confirmados: 0,
+            taxaConversao: 0,
+          } as ReportMetrics,
+          error: null,
+        };
+      }
     }
 
     const { data: appointments } = await aptQuery;
     const apts = (appointments ?? []) as { id: string; status: string }[];
     const aptIds = apts.map((a) => a.id);
-
-    let financial: { amount: number }[] = [];
-    if (aptIds.length > 0) {
-      const { data: fin } = await supabase
-        .from("financial_records")
-        .select("amount")
-        .eq("company_id", companyId)
-        .eq("is_valid", true)
-        .eq("type", "income")
-        .in("appointment_id", aptIds)
-        .gte("created_at", `${filters.startDate}T00:00:00`)
-        .lte("created_at", `${filters.endDate}T23:59:59`);
-      financial = (fin ?? []) as { amount: number }[];
-    }
-
-    const faturamentoTotal = (financial ?? []).reduce((s, r) => s + Number(r.amount), 0);
     const concluidos = apts.filter((a) => a.status === "completed").length;
     const cancelamentos = apts.filter((a) => a.status === "cancelled").length;
     const confirmados = apts.filter((a) => a.status === "confirmed").length;
     const totalAgendamentos = apts.length;
 
-    const ticketMedio = concluidos > 0 ? faturamentoTotal / concluidos : 0;
-    const taxaConversao = confirmados > 0 ? (concluidos / confirmados) * 100 : 0;
+    const { data: allFinancial } = await supabase
+      .from("financial_records")
+      .select("type, source, amount, appointment_id")
+      .eq("company_id", companyId)
+      .eq("is_valid", true)
+      .gte("created_at", periodStart)
+      .lte("created_at", periodEnd);
 
-    const servicosRealizados = concluidos;
+    const records = (allFinancial ?? []) as { type: string; source: string; amount: number; appointment_id: string | null }[];
+    const filteredAptIdsSet = new Set(aptIds);
+
+    let totalIncome = 0;
+    let totalExpense = 0;
+    let faturamentoServicos = 0;
+    let faturamentoProdutos = 0;
+    records.forEach((r) => {
+      const amt = Number(r.amount) || 0;
+      if (r.type === "income") {
+        totalIncome += amt;
+        if (r.source === "appointment" || r.appointment_id != null) {
+          if (filteredAptIdsSet.size > 0 && r.appointment_id && filteredAptIdsSet.has(r.appointment_id))
+            faturamentoServicos += amt;
+        } else if (r.source === "product_sale") faturamentoProdutos += amt;
+      } else if (r.type === "expense") totalExpense += amt;
+    });
+
+    const faturamentoTotal = faturamentoServicos + faturamentoProdutos;
+    const lucroEstimado = totalIncome - totalExpense;
+    const ticketMedio = concluidos > 0 ? faturamentoServicos / concluidos : 0;
+    const taxaConversao = confirmados > 0 ? (concluidos / confirmados) * 100 : 0;
 
     return {
       data: {
         faturamentoTotal,
+        faturamentoServicos,
+        faturamentoProdutos,
+        lucroEstimado,
         totalAgendamentos,
         agendamentosConcluidos: concluidos,
         ticketMedio,
-        servicosRealizados,
+        servicosRealizados: concluidos,
         cancelamentos,
         confirmados,
         taxaConversao,
@@ -205,36 +255,163 @@ export const reportsService = {
   },
 
   async getServicosMaisVendidos(companyId: string, filters: ReportsFilters) {
-    const { data: apts } = await supabase
+    let aptQuery = supabase
       .from("appointments")
       .select("id, appointment_services(service_id)")
       .eq("company_id", companyId)
       .eq("status", "completed")
       .gte("date", filters.startDate)
       .lte("date", filters.endDate);
+    if (filters.professionalId) aptQuery = aptQuery.eq("professional_id", filters.professionalId);
+    const { data: apts } = await aptQuery;
 
     const countByService: Record<string, number> = {};
-    (apts ?? []).forEach((a: { appointment_services?: { service_id: string }[] }) => {
+    const aptIdsByService: Record<string, string[]> = {};
+    (apts ?? []).forEach((a: { id: string; appointment_services?: { service_id: string }[] }) => {
       (a.appointment_services ?? []).forEach((s) => {
         const sid = s.service_id;
         if (filters.serviceId && sid !== filters.serviceId) return;
         countByService[sid] = (countByService[sid] ?? 0) + 1;
+        if (!aptIdsByService[sid]) aptIdsByService[sid] = [];
+        if (!aptIdsByService[sid].includes(a.id)) aptIdsByService[sid].push(a.id);
       });
     });
 
     const serviceIds = Object.keys(countByService);
     if (serviceIds.length === 0) return { data: [], error: null };
 
+    const allAptIds = [...new Set(Object.values(aptIdsByService).flat())];
+    let valorByApt: Record<string, number> = {};
+    if (allAptIds.length > 0) {
+      const { data: financial } = await supabase
+        .from("financial_records")
+        .select("appointment_id, amount")
+        .eq("company_id", companyId)
+        .eq("is_valid", true)
+        .eq("type", "income")
+        .in("appointment_id", allAptIds);
+      (financial ?? []).forEach((r: { appointment_id: string; amount: number }) => {
+        valorByApt[r.appointment_id] = (valorByApt[r.appointment_id] ?? 0) + Number(r.amount);
+      });
+    }
+
     const { data: services } = await supabase.from("services").select("id, name").in("id", serviceIds);
     const svcMap = Object.fromEntries(((services ?? []) as { id: string; name: string }[]).map((s) => [s.id, s.name]));
 
     const result: ServicoMaisVendido[] = Object.entries(countByService)
-      .map(([serviceId, quantidade]) => ({
-        serviceId,
-        serviceName: svcMap[serviceId] ?? "—",
-        quantidade,
-      }))
+      .map(([serviceId, quantidade]) => {
+        const aptIds = aptIdsByService[serviceId] ?? [];
+        const faturamentoGerado = aptIds.reduce((s, id) => s + (valorByApt[id] ?? 0), 0);
+        return {
+          serviceId,
+          serviceName: svcMap[serviceId] ?? "—",
+          quantidade,
+          faturamentoGerado,
+        };
+      })
       .sort((a, b) => b.quantidade - a.quantidade);
+
+    return { data: result, error: null };
+  },
+
+  async getRankingProfissionais(companyId: string, filters: ReportsFilters) {
+    let aptQuery = supabase
+      .from("appointments")
+      .select("id, professional_id")
+      .eq("company_id", companyId)
+      .eq("status", "completed")
+      .gte("date", filters.startDate)
+      .lte("date", filters.endDate);
+    if (filters.professionalId) aptQuery = aptQuery.eq("professional_id", filters.professionalId);
+    const { data: apts } = await aptQuery;
+
+    let aptList = (apts ?? []) as { id: string; professional_id: string }[];
+    if (filters.serviceId) {
+      const { data: svcLinks } = await supabase
+        .from("appointment_services")
+        .select("appointment_id")
+        .eq("service_id", filters.serviceId);
+      const ids = new Set(((svcLinks ?? []) as { appointment_id: string }[]).map((a) => a.appointment_id));
+      aptList = aptList.filter((a) => ids.has(a.id));
+    }
+
+    const aptIds = aptList.map((a) => a.id);
+    const atendimentosByProf: Record<string, number> = {};
+    aptList.forEach((a) => {
+      atendimentosByProf[a.professional_id] = (atendimentosByProf[a.professional_id] ?? 0) + 1;
+    });
+
+    let valorByProf: Record<string, number> = {};
+    if (aptIds.length > 0) {
+      const { data: financial } = await supabase
+        .from("financial_records")
+        .select("appointment_id, amount")
+        .eq("company_id", companyId)
+        .eq("is_valid", true)
+        .eq("type", "income")
+        .in("appointment_id", aptIds);
+      const aptToProf = Object.fromEntries(aptList.map((a) => [a.id, a.professional_id]));
+      (financial ?? []).forEach((r: { appointment_id: string; amount: number }) => {
+        const pid = aptToProf[r.appointment_id];
+        if (pid) valorByProf[pid] = (valorByProf[pid] ?? 0) + Number(r.amount);
+      });
+    }
+
+    const profIds = Object.keys(atendimentosByProf);
+    if (profIds.length === 0) return { data: [], error: null };
+    const { data: profs } = await supabase.from("professionals").select("id, name").in("id", profIds);
+    const profMap = Object.fromEntries(((profs ?? []) as { id: string; name: string }[]).map((p) => [p.id, p.name]));
+
+    const result: RankingProfissional[] = profIds
+      .map((professionalId) => {
+        const atendimentos = atendimentosByProf[professionalId] ?? 0;
+        const faturamentoGerado = valorByProf[professionalId] ?? 0;
+        const ticketMedio = atendimentos > 0 ? faturamentoGerado / atendimentos : 0;
+        return {
+          professionalId,
+          professionalName: profMap[professionalId] ?? "—",
+          atendimentos,
+          faturamentoGerado,
+          ticketMedio,
+        };
+      })
+      .sort((a, b) => b.faturamentoGerado - a.faturamentoGerado);
+
+    return { data: result, error: null };
+  },
+
+  async getHorariosMaisMovimentados(companyId: string, filters: ReportsFilters) {
+    let query = supabase
+      .from("appointments")
+      .select("start_time")
+      .eq("company_id", companyId)
+      .eq("status", "completed")
+      .gte("date", filters.startDate)
+      .lte("date", filters.endDate);
+    if (filters.professionalId) query = query.eq("professional_id", filters.professionalId);
+    if (filters.serviceId) {
+      const { data: svcLinks } = await supabase
+        .from("appointment_services")
+        .select("appointment_id")
+        .eq("service_id", filters.serviceId);
+      const ids = [...new Set(((svcLinks ?? []) as { appointment_id: string }[]).map((a) => a.appointment_id))];
+      if (ids.length === 0) return { data: [], error: null };
+      query = query.in("id", ids);
+    }
+    const { data: apts } = await query;
+
+    const byHour: Record<number, number> = {};
+    (apts ?? []).forEach((a: { start_time: string | null }) => {
+      const t = a.start_time;
+      if (!t) return;
+      const hour = parseInt(t.slice(0, 2), 10);
+      if (!Number.isNaN(hour)) byHour[hour] = (byHour[hour] ?? 0) + 1;
+    });
+
+    const result: HorarioMovimentado[] = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+      .filter((h) => (byHour[h] ?? 0) > 0)
+      .map((h) => ({ hora: `${h.toString().padStart(2, "0")}h`, count: byHour[h] ?? 0 }))
+      .sort((a, b) => a.hora.localeCompare(b.hora));
 
     return { data: result, error: null };
   },

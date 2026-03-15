@@ -31,6 +31,20 @@ export interface CreateManualParams {
   created_by?: string;
 }
 
+export interface CreateFromProductPurchaseParams {
+  company_id: string;
+  product_name: string;
+  amount: number;
+  created_by?: string | null;
+}
+
+export interface CreateFromProductSaleParams {
+  company_id: string;
+  product_name: string;
+  amount: number;
+  created_by?: string | null;
+}
+
 export const financialService = {
   async createFromAppointment(params: CreateFromAppointmentParams) {
     const { data, error } = await supabase
@@ -46,6 +60,52 @@ export const financialService = {
         client_name_snapshot: params.client_name_snapshot,
         professional_name_snapshot: params.professional_name_snapshot,
         created_by: params.created_by,
+        is_valid: true,
+      })
+      .select()
+      .single();
+    return { data: data as FinancialRecord, error };
+  },
+
+  /** Despesa: compra de produto (entrada de estoque com preço de custo). */
+  async createFromProductPurchase(params: CreateFromProductPurchaseParams) {
+    const amount = Math.abs(params.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { data: null, error: new Error("Valor inválido para compra de produto") };
+    }
+    const { data, error } = await supabase
+      .from("financial_records")
+      .insert({
+        company_id: params.company_id,
+        appointment_id: null,
+        type: "expense",
+        source: "product_purchase",
+        description: `Compra de produto - ${params.product_name}`,
+        amount,
+        created_by: params.created_by ?? null,
+        is_valid: true,
+      })
+      .select()
+      .single();
+    return { data: data as FinancialRecord, error };
+  },
+
+  /** Receita: venda de produto. */
+  async createFromProductSale(params: CreateFromProductSaleParams) {
+    const amount = Math.abs(params.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { data: null, error: new Error("Valor inválido para venda de produto") };
+    }
+    const { data, error } = await supabase
+      .from("financial_records")
+      .insert({
+        company_id: params.company_id,
+        appointment_id: null,
+        type: "income",
+        source: "product_sale",
+        description: `Venda de produto - ${params.product_name}`,
+        amount,
+        created_by: params.created_by ?? null,
         is_valid: true,
       })
       .select()

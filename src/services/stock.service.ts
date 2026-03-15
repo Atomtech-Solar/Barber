@@ -6,6 +6,7 @@ import type {
   StockUnit,
   StockMovementType,
 } from "@/types/database.types";
+import { financialService } from "@/services/financial.service";
 
 const UNIT_LABELS: Record<StockUnit, string> = {
   unit: "un",
@@ -52,8 +53,11 @@ export interface CreateProductParams {
   initial_packages?: number;
   minimum_stock: number;
   image_url?: string;
-  cost_price?: number;
+  /** Obrigatório: custo do produto (por unidade). Usado para registro financeiro na entrada inicial. */
+  cost_price: number;
   sale_price?: number;
+  /** Opcional: usuário que cadastrou (para registro financeiro da compra inicial) */
+  created_by?: string;
 }
 
 export interface CreateMovementParams {
@@ -62,6 +66,12 @@ export interface CreateMovementParams {
   quantity: number;
   reason?: string;
   created_by: string;
+  /** Entrada: custo por unidade nesta compra (obrigatório para gerar registro financeiro). */
+  cost_at_entry?: number;
+  /** Venda: valor total da venda (obrigatório para gerar registro financeiro). */
+  sale_amount?: number;
+  /** Entrada: quantidade que vem por pacote (ex.: 200 ml por frasco). Se não informado, usa a do produto. */
+  quantity_per_package?: number;
 }
 
 export const stockService = {
@@ -99,11 +109,15 @@ export const stockService = {
   async createProduct(companyId: string, params: CreateProductParams) {
     const packageQuantity = Number(params.package_quantity);
     const initialPackages = Number(params.initial_packages ?? 0);
+    const costPrice = Number(params.cost_price);
     if (!Number.isFinite(packageQuantity) || packageQuantity <= 0) {
       throw new Error("Quantidade por embalagem deve ser maior que zero.");
     }
     if (!Number.isFinite(initialPackages) || initialPackages < 0) {
       throw new Error("Quantidade inicial comprada inválida.");
+    }
+    if (!Number.isFinite(costPrice) || costPrice < 0) {
+      throw new Error("Preço de custo é obrigatório e deve ser maior ou igual a zero.");
     }
     const initialQuantity = initialPackages * packageQuantity;
 
@@ -121,12 +135,28 @@ export const stockService = {
         current_quantity: initialQuantity,
         minimum_stock: params.minimum_stock,
         image_url: params.image_url || null,
-        cost_price: params.cost_price ?? null,
+        cost_price: costPrice,
         sale_price: params.sale_price ?? null,
       })
       .select()
       .single();
-    return { data: data as StockProduct, error };
+    if (error) return { data: null as unknown as StockProduct, error };
+
+    const product = data as StockProduct;
+    // Entrada inicial: registrar compra no financeiro (frascos × custo por frasco, não ml × custo)
+    if (initialPackages > 0 && costPrice > 0) {
+      const amount = initialPackages * costPrice;
+      const { error: financialError } = await financialService.createFromProductPurchase({
+        company_id: companyId,
+        product_name: product.name,
+        amount,
+        created_by: params.created_by ?? null,
+      });
+      if (financialError) {
+        console.warn("[stock] Registro financeiro da compra inicial não criado:", financialError);
+      }
+    }
+    return { data: product, error: null };
   },
 
   async updateProduct(
@@ -164,7 +194,7 @@ export const stockService = {
 
     const { data: product, error: productError } = await supabase
       .from("stock_products")
-      .select("id, current_quantity, unit_type, package_quantity")
+      .select("id, name, current_quantity, unit_type, package_quantity, cost_price, sale_price")
       .eq("company_id", companyId)
       .eq("id", params.product_id)
       .single();
@@ -178,9 +208,13 @@ export const stockService = {
     }
 
     const current = Number(product.current_quantity ?? 0);
-    const packageQuantity = Number((product as { package_quantity?: number }).package_quantity ?? 1);
+    const productPackageQty = Number((product as { package_quantity?: number }).package_quantity ?? 1);
+    const quantityPerPackage =
+      params.movement_type === "entry" && params.quantity_per_package != null && Number(params.quantity_per_package) > 0
+        ? Number(params.quantity_per_package)
+        : productPackageQty;
     let nextQuantity = current;
-    const entryQuantity = quantity * packageQuantity;
+    const entryQuantity = quantity * quantityPerPackage;
     if (params.movement_type === "entry") nextQuantity = current + entryQuantity;
     if (params.movement_type === "usage" || params.movement_type === "sale") nextQuantity = current - quantity;
     if (params.movement_type === "adjustment") nextQuantity = quantity;
@@ -214,7 +248,49 @@ export const stockService = {
       })
       .select()
       .single();
-    return { data: data as StockMovement, error };
+
+    if (error) return { data: null as unknown as StockMovement, error };
+
+    const productName = (product as { name?: string }).name ?? "Produto";
+
+    // Integração estoque → financeiro: apenas Entrada e Venda (Consumo e Ajuste não alteram caixa)
+    if (params.movement_type === "entry") {
+      const costPerUnit =
+        params.cost_at_entry != null
+          ? Number(params.cost_at_entry)
+          : Number((product as { cost_price?: number }).cost_price ?? 0);
+      if (Number.isFinite(costPerUnit) && costPerUnit > 0) {
+        // Valor da compra = quantidade de embalagens (frascos) × custo por embalagem
+        const amount = quantity * costPerUnit;
+        const { error: financialError } = await financialService.createFromProductPurchase({
+          company_id: companyId,
+          product_name: productName,
+          amount,
+          created_by: params.created_by,
+        });
+        if (financialError) {
+          console.warn("[stock] Registro financeiro de compra não criado:", financialError);
+        }
+      }
+    } else if (params.movement_type === "sale") {
+      const totalSale = Number(params.sale_amount);
+      const amount = Number.isFinite(totalSale) && totalSale > 0
+        ? totalSale
+        : quantity * Number((product as { sale_price?: number }).sale_price ?? 0);
+      if (amount > 0) {
+        const { error: financialError } = await financialService.createFromProductSale({
+          company_id: companyId,
+          product_name: productName,
+          amount,
+          created_by: params.created_by,
+        });
+        if (financialError) {
+          console.warn("[stock] Registro financeiro de venda não criado:", financialError);
+        }
+      }
+    }
+
+    return { data: data as StockMovement, error: null };
   },
 
   async listMovementsByProduct(

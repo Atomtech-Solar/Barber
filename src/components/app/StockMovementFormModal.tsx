@@ -45,6 +45,9 @@ export function StockMovementFormModal({
   const [movementType, setMovementType] = useState<StockMovementType>("entry");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
+  const [costAtEntry, setCostAtEntry] = useState("");
+  const [saleAmount, setSaleAmount] = useState("");
+  const [quantityPerPackage, setQuantityPerPackage] = useState("");
   const [searching, setSearching] = useState(false);
 
   const packageQuantity = Number(selectedProduct?.package_quantity ?? 0);
@@ -82,14 +85,43 @@ export function StockMovementFormModal({
       setMovementType("entry");
       setQuantity("");
       setReason("");
+      setCostAtEntry("");
+      setSaleAmount("");
+      setQuantityPerPackage("");
     }
   }, [open]);
+
+  useEffect(() => {
+    if (selectedProduct && movementType === "entry") {
+      const qpp = selectedProduct.package_quantity;
+      setQuantityPerPackage(Number(qpp) > 0 ? String(qpp) : "");
+    }
+  }, [selectedProduct?.id, movementType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
     const qty = parseFloat(quantity.replace(",", "."));
     if (isNaN(qty) || qty <= 0) return;
+    if (movementType === "entry") {
+      const cost = parseFloat(costAtEntry.replace(",", "."));
+      if (isNaN(cost) || cost < 0) {
+        toast.error("Informe o custo do produto na entrada.");
+        return;
+      }
+      const qpp = parseFloat(quantityPerPackage.replace(",", "."));
+      if (isNaN(qpp) || qpp <= 0) {
+        toast.error("Informe a quantidade por pacote.");
+        return;
+      }
+    }
+    if (movementType === "sale") {
+      const amount = parseFloat(saleAmount.replace(",", "."));
+      if (isNaN(amount) || amount < 0) {
+        toast.error("Informe o valor da venda.");
+        return;
+      }
+    }
     try {
       await stockService.createMovement(companyId, {
         product_id: selectedProduct.id,
@@ -97,6 +129,12 @@ export function StockMovementFormModal({
         quantity: qty,
         reason: reason.trim() || undefined,
         created_by: createdBy,
+        cost_at_entry: movementType === "entry" ? parseFloat(costAtEntry.replace(",", ".")) : undefined,
+        sale_amount: movementType === "sale" ? parseFloat(saleAmount.replace(",", ".")) : undefined,
+        quantity_per_package:
+          movementType === "entry" && quantityPerPackage.trim()
+            ? parseFloat(quantityPerPackage.replace(",", "."))
+            : undefined,
       });
       await onSubmit();
       onOpenChange(false);
@@ -183,9 +221,71 @@ export function StockMovementFormModal({
                 ))}
               </SelectContent>
             </Select>
+            {movementType === "usage" && (
+              <p className="text-xs text-muted-foreground mt-1">Consumo não altera o financeiro.</p>
+            )}
+            {movementType === "adjustment" && (
+              <p className="text-xs text-muted-foreground mt-1">Ajuste não altera o financeiro.</p>
+            )}
           </div>
+          {movementType === "entry" && (
+            <div>
+              <Label htmlFor="cost_at_entry">Custo do produto na entrada (R$) *</Label>
+              <Input
+                id="cost_at_entry"
+                type="number"
+                step="0.01"
+                min={0}
+                value={costAtEntry}
+                onChange={(e) => setCostAtEntry(e.target.value)}
+                placeholder="Ex: 20,00"
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Valor pago por unidade. Será registrado como despesa no financeiro.
+              </p>
+            </div>
+          )}
+          {movementType === "sale" && (
+            <div>
+              <Label htmlFor="sale_amount">Valor da venda (R$) *</Label>
+              <Input
+                id="sale_amount"
+                type="number"
+                step="0.01"
+                min={0}
+                value={saleAmount}
+                onChange={(e) => setSaleAmount(e.target.value)}
+                placeholder="Valor total recebido"
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Será registrado como receita no financeiro.
+              </p>
+            </div>
+          )}
+          {movementType === "entry" && selectedProduct && (
+            <div>
+              <Label htmlFor="qty_per_package">Quantidade por pacote *</Label>
+              <Input
+                id="qty_per_package"
+                type="number"
+                step="0.01"
+                min={0.01}
+                value={quantityPerPackage}
+                onChange={(e) => setQuantityPerPackage(e.target.value)}
+                placeholder="Ex: 200"
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Quanto vem em cada pacote/embalagem ({getUnitLabel(selectedProduct.unit_type)}). Ex.: 200 ml por frasco.
+              </p>
+            </div>
+          )}
           <div>
-            <Label htmlFor="qty">Quantidade *</Label>
+            <Label htmlFor="qty">
+              {movementType === "entry" ? "Quantidade de pacotes *" : "Quantidade *"}
+            </Label>
             <Input
               id="qty"
               type="number"
@@ -195,7 +295,7 @@ export function StockMovementFormModal({
               onChange={(e) => setQuantity(e.target.value)}
               placeholder={
                 movementType === "entry"
-                  ? `Embalagens (${selectedProduct?.package_type?.trim() || "unidades"})`
+                  ? `Ex.: 4 frascos`
                   : selectedProduct
                   ? `Quantidade em ${getUnitLabel(selectedProduct.unit_type)}`
                   : "Quantidade"
@@ -205,7 +305,7 @@ export function StockMovementFormModal({
             />
             {movementType === "entry" ? (
               <p className="text-xs text-muted-foreground mt-1">
-                Entrada converte automaticamente embalagem para {getUnitLabel(selectedProduct?.unit_type ?? "unit")}.
+                Número de pacotes/embalagens. Estoque será: pacotes × quantidade por pacote ({getUnitLabel(selectedProduct?.unit_type ?? "unit")}).
               </p>
             ) : null}
             {movementType === "adjustment" ? (
@@ -228,7 +328,16 @@ export function StockMovementFormModal({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading || !selectedProduct || !quantity}>
+            <Button
+              type="submit"
+              disabled={
+                isLoading ||
+                !selectedProduct ||
+                !quantity ||
+                (movementType === "entry" && (!costAtEntry.trim() || !quantityPerPackage.trim())) ||
+                (movementType === "sale" && !saleAmount.trim())
+              }
+            >
               {isLoading ? "Salvando..." : "Registrar"}
             </Button>
           </DialogFooter>

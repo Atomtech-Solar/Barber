@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2 } from "lucide-react";
+import { Trash2, CheckCircle } from "lucide-react";
 import { maskPhone } from "@/lib/masks";
 import { setHours, setMinutes, addMinutes, format } from "date-fns";
 import type { Appointment, ProfessionalWithServices, Service } from "@/types/database.types";
@@ -84,8 +84,11 @@ interface AppointmentFormModalProps {
   createdBy: string;
   onSubmit: (values: FormValues) => Promise<void>;
   onDelete?: (appointmentId: string) => Promise<void>;
+  /** Concluir atendimento (status → completed): abre confirmação e cria registro financeiro */
+  onComplete?: (appointmentId: string) => Promise<void>;
   isLoading?: boolean;
   isDeleting?: boolean;
+  isCompleting?: boolean;
 }
 
 export interface FormValues {
@@ -114,10 +117,13 @@ export function AppointmentFormModal({
   createdBy,
   onSubmit,
   onDelete,
+  onComplete,
   isLoading,
   isDeleting,
+  isCompleting,
 }: AppointmentFormModalProps) {
   const isCreate = mode === "create";
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
 
   const defaultService = services[0];
   const defaultDuration = defaultService?.duration_minutes ?? 30;
@@ -225,6 +231,18 @@ export function AppointmentFormModal({
     0
   );
 
+  const completedServicesForConfirm = useMemo(() => {
+    if (!appointment?.service_ids?.length) return [];
+    return appointment.service_ids
+      .map((id) => services.find((s) => s.id === id))
+      .filter((s): s is Service => !!s);
+  }, [appointment?.service_ids, services]);
+
+  const totalValueForConfirm = completedServicesForConfirm.reduce(
+    (sum, s) => sum + (Number(s.price) ?? 0),
+    0
+  );
+
   const handleClientSelect = (value: string) => {
     setClientSelectValue(value);
     if (value === "__other__") {
@@ -285,6 +303,7 @@ export function AppointmentFormModal({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -508,8 +527,21 @@ export function AppointmentFormModal({
               className="mt-1"
             />
           </div>
-          <DialogFooter className="flex-row justify-between sm:justify-between">
-            <div>
+          <DialogFooter className="flex-row justify-between sm:justify-between flex-wrap gap-2">
+            <div className="flex gap-2">
+              {mode === "edit" && appointment?.status === "confirmed" && onComplete && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setShowCompleteConfirm(true)}
+                  disabled={isLoading || isDeleting || isCompleting}
+                >
+                  <CheckCircle size={16} />
+                  Concluir atendimento
+                </Button>
+              )}
               {mode === "edit" && appointment && onDelete && (
                 <Button
                   type="button"
@@ -534,6 +566,55 @@ export function AppointmentFormModal({
           </DialogFooter>
         </form>
       </DialogContent>
+
     </Dialog>
+
+    <Dialog open={showCompleteConfirm} onOpenChange={setShowCompleteConfirm}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Concluir atendimento?</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <p className="text-sm text-muted-foreground">Serviços realizados:</p>
+          <ul className="text-sm list-disc list-inside space-y-1">
+            {completedServicesForConfirm.length > 0 ? (
+              completedServicesForConfirm.map((s) => (
+                <li key={s.id}>
+                  {s.name} — R$ {Number(s.price).toFixed(2).replace(".", ",")}
+                </li>
+              ))
+            ) : (
+              <li className="text-muted-foreground">Atendimento</li>
+            )}
+          </ul>
+          <p className="text-sm font-medium pt-2 border-t">
+            Valor total: R$ {totalValueForConfirm.toFixed(2).replace(".", ",")}
+          </p>
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowCompleteConfirm(false)}
+            disabled={isCompleting}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={async () => {
+              if (!appointment?.id || !onComplete) return;
+              await onComplete(appointment.id);
+              setShowCompleteConfirm(false);
+              onOpenChange(false);
+            }}
+            disabled={isCompleting}
+          >
+            {isCompleting ? "Concluindo..." : "Confirmar conclusão"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

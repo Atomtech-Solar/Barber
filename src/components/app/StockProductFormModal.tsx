@@ -105,6 +105,8 @@ export function StockProductFormModal({
     if (isNaN(packageQuantity) || packageQuantity <= 0) return;
     const initialPackages = parseFloat(values.initial_packages);
     if (isNaN(initialPackages) || initialPackages < 0) return;
+    const costPrice = parseFloat(values.cost_price);
+    if (isNaN(costPrice) || costPrice < 0) return;
     await onSubmit(values);
     onOpenChange(false);
   };
@@ -244,7 +246,7 @@ export function StockProductFormModal({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="cost_price">Preço de custo (R$)</Label>
+              <Label htmlFor="cost_price">Preço de custo (R$) *</Label>
               <Input
                 id="cost_price"
                 type="number"
@@ -253,8 +255,12 @@ export function StockProductFormModal({
                 value={values.cost_price}
                 onChange={(e) => setValues((v) => ({ ...v, cost_price: e.target.value }))}
                 placeholder="0,00"
+                required
                 className="mt-1"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Obrigatório. Se houver quantidade inicial, a compra já aparece no financeiro.
+              </p>
             </div>
             <div>
               <Label htmlFor="sale_price">Preço de venda (R$)</Label>

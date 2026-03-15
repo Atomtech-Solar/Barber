@@ -102,6 +102,26 @@ const AppPayments = () => {
                         <span className="text-muted-foreground">Faturamento do mês</span>
                         <span>{formatCurrency(p.total_faturado)}</span>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Atendimentos no mês</span>
+                        <span>{p.atendimentos_count ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Ticket médio</span>
+                        <span>
+                          {formatCurrency(
+                            (p.atendimentos_count ?? 0) > 0
+                              ? p.total_faturado / (p.atendimentos_count ?? 1)
+                              : 0
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Comissão gerada</span>
+                        <span className="text-green-600 dark:text-green-400">
+                          {formatCurrency(p.total_comissao_excedente ?? 0)}
+                        </span>
+                      </div>
                       <div className="flex justify-between font-medium pt-2 border-t">
                         <span>Valor estimado</span>
                         <span>{formatCurrency(p.valor_final)}</span>
