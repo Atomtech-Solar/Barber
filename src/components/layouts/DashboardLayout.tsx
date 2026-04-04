@@ -3,13 +3,15 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/contexts/TenantContext";
 import { RouteErrorBoundary } from "@/components/shared/RouteErrorBoundary";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
+import { useNotificationsRealtime } from "@/hooks/useNotificationsRealtime";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanyPageAccess } from "@/hooks/useCompanyPageAccess";
 import { applyCompanyTheme, resetAppTheme } from "@/lib/companyTheme";
 import {
   LayoutDashboard, Calendar, Users, Scissors, UserCheck, DollarSign,
   Package, BarChart3, Settings, Plus, ChevronLeft, Menu,
-  ChevronRight, LogOut, Percent, RefreshCw
+  ChevronRight, LogOut, Percent, RefreshCw, MessageSquare
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,6 +35,7 @@ const navItems = [
   { label: "Estoque", icon: Package, path: "/app/stock", accessKey: "stock" },
   { label: "Pagamentos", icon: Percent, path: "/app/payments", accessKey: "payments" },
   { label: "Relatórios", icon: BarChart3, path: "/app/reports", accessKey: "reports" },
+  { label: "Mural", icon: MessageSquare, path: "/app/mural", accessKey: "mural" },
   { label: "Configurações", icon: Settings, path: "/app/settings", accessKey: "settings" },
 ];
 
@@ -46,6 +49,11 @@ const DashboardLayout = () => {
   const { profile, user, signOut } = useAuth();
   const { hasAccessToPage, hasAccessToPath, isLoading: accessLoading } = useCompanyPageAccess();
   const canAccessCurrentPath = hasAccessToPath(location.pathname);
+
+  useNotificationsRealtime(
+    hasAccessToPage("notifications") ? currentCompany?.id : undefined,
+    hasAccessToPage("notifications")
+  );
 
   const handleRefresh = useCallback(async () => {
     if (!currentCompany?.id || refreshing) return;
@@ -65,6 +73,9 @@ const DashboardLayout = () => {
         queryClient.refetchQueries({ queryKey: ["stock-products"] }),
         queryClient.refetchQueries({ queryKey: ["payment-professionals"] }),
         queryClient.refetchQueries({ queryKey: ["company-member-access"] }),
+        queryClient.refetchQueries({ queryKey: ["recados"] }),
+        queryClient.refetchQueries({ queryKey: ["notifications"] }),
+        queryClient.refetchQueries({ queryKey: ["notifications-unread"] }),
       ]);
       toast.success("Dados atualizados");
     } catch {
@@ -176,6 +187,9 @@ const DashboardLayout = () => {
             </h2>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
+            {hasAccessToPage("notifications") && (
+              <NotificationsBell companyId={currentCompany?.id} />
+            )}
             <Button
               variant="ghost"
               size="sm"

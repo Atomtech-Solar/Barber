@@ -65,6 +65,8 @@ const AdminCompanyTeam = () => {
     { key: "financial", label: "Financeiro" },
     { key: "stock", label: "Estoque" },
     { key: "reports", label: "Relatórios" },
+    { key: "mural", label: "Mural de recados" },
+    { key: "notifications", label: "Notificações" },
     { key: "settings", label: "Configurações" },
   ];
 

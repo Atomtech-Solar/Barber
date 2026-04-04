@@ -292,3 +292,58 @@ export interface MonthlyProfessionalSummary {
   fechado: boolean;
   created_at: string;
 }
+
+export type RecadoPrioridade = 'normal' | 'importante' | 'urgente';
+
+export interface Recado {
+  id: string;
+  company_id: string;
+  titulo: string;
+  mensagem: string;
+  autor: string;
+  prioridade: RecadoPrioridade;
+  fixado: boolean;
+  criado_em: string;
+  created_by: string | null;
+  /** Reservado para equipes/unidades (sem FK até existir tabela teams) */
+  team_id?: string | null;
+}
+
+export interface RecadoComment {
+  id: string;
+  recado_id: string;
+  user_id: string;
+  mensagem: string;
+  criado_em: string;
+}
+
+export interface RecadoMention {
+  id: string;
+  recado_id: string;
+  mentioned_user_id: string;
+}
+
+export type AppNotificationType = "mention" | "global";
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  company_id: string;
+  type: AppNotificationType;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  recado_id: string | null;
+  comment_id: string | null;
+}
+
+export interface CreateNotificationInput {
+  user_id: string;
+  company_id: string;
+  type: AppNotificationType;
+  title: string;
+  message: string;
+  recado_id?: string | null;
+  comment_id?: string | null;
+}

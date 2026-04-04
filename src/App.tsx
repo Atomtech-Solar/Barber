@@ -30,6 +30,8 @@ const AppFinancial = lazy(() => import("./pages/app/AppFinancial"));
 const AppStock = lazy(() => import("./pages/app/AppStock"));
 const AppPayments = lazy(() => import("./pages/app/AppPayments"));
 const AppReports = lazy(() => import("./pages/app/AppReports"));
+const AppMural = lazy(() => import("./pages/app/AppMural"));
+const AppNotifications = lazy(() => import("./pages/app/AppNotifications"));
 import { ReportsGuard } from "./components/auth/ReportsGuard";
 const AppSettings = lazy(() => import("./pages/app/AppSettings"));
 const LandingSettings = lazy(() => import("./pages/app/LandingSettings"));
@@ -108,6 +110,8 @@ const App = () => (
                     </ReportsGuard>
                   }
                 />
+                <Route path="mural" element={<AppMural />} />
+                <Route path="notifications" element={<AppNotifications />} />
                 <Route path="settings/landing" element={<LandingSettings />} />
                 <Route path="settings" element={<AppSettings />} />
               </Route>

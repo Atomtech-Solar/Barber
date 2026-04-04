@@ -14,7 +14,7 @@ export function useSiteMeta({ company, slug, isReady }: UseSiteMetaOptions) {
   useEffect(() => {
     if (!isReady || !company || !slug) return;
 
-    const title = `${company.name} | brynex`;
+    const title = `${company.name} | Brynex`;
     const description =
       company.slogan ??
       `${company.name} - Agende online e transforme seu visual.`;
@@ -61,7 +61,7 @@ export function useSiteMeta({ company, slug, isReady }: UseSiteMetaOptions) {
     if (imageUrl) setOrCreateMeta("og:image", imageUrl);
 
     return () => {
-      document.title = "BeautyHub — Gestão de Negócios de Beleza";
+      document.title = "Brynex";
     };
   }, [company, slug, isReady]);
 }

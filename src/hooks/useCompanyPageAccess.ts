@@ -13,6 +13,8 @@ export const APP_PAGE_KEYS = [
   "stock",
   "payments",
   "reports",
+  "mural",
+  "notifications",
   "settings",
 ] as const;
 
@@ -28,6 +30,8 @@ function mapPathToPageKey(pathname: string): AppPageKey {
   if (pathname.startsWith("/app/payments")) return "payments";
   if (pathname.startsWith("/app/commissions")) return "payments"; // legacy redirect
   if (pathname.startsWith("/app/reports")) return "reports";
+  if (pathname.startsWith("/app/mural")) return "mural";
+  if (pathname.startsWith("/app/notifications")) return "notifications";
   if (pathname.startsWith("/app/settings")) return "settings";
   return "dashboard";
 }
