@@ -111,8 +111,6 @@ const AppClients = () => {
   return (
     <>
       <PageContainer
-        title="Clientes"
-        description="Clique em um cliente para ver o histórico. Cadastre e gerencie os clientes da empresa."
         actions={
           <Button onClick={() => setModalOpen(true)} disabled={!companyId}>
             <Plus size={16} className="mr-2" />

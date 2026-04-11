@@ -175,7 +175,7 @@ const AppMural = () => {
 
   if (!companyId) {
     return (
-      <PageContainer title="Mural de recados" description="Comunicação interna da equipe">
+      <PageContainer>
         <p className="text-muted-foreground py-12 text-center">Selecione uma empresa.</p>
       </PageContainer>
     );
@@ -184,8 +184,6 @@ const AppMural = () => {
   return (
     <>
       <PageContainer
-        title="Mural de recados"
-        description="Publique avisos e lembretes para toda a equipe da empresa."
         actions={
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4 mr-2" />

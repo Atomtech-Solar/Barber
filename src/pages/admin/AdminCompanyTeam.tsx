@@ -29,7 +29,7 @@ import {
 import { companyService } from "@/services/company.service";
 import { companyMemberService } from "@/services/company-member.service";
 import type { CompanyMemberWithProfile } from "@/types/database.types";
-import { APP_PAGE_KEYS } from "@/hooks/useCompanyPageAccess";
+import { APP_PAGE_KEYS, APP_PAGE_LABELS } from "@/hooks/useCompanyPageAccess";
 
 function initials(name: string | null | undefined) {
   const value = (name ?? "").trim();
@@ -56,19 +56,10 @@ const AdminCompanyTeam = () => {
     allowed_pages: [...APP_PAGE_KEYS] as string[],
   });
 
-  const ACCESS_OPTIONS: { key: (typeof APP_PAGE_KEYS)[number]; label: string }[] = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "agenda", label: "Agenda" },
-    { key: "clients", label: "Clientes" },
-    { key: "services", label: "Serviços" },
-    { key: "professionals", label: "Profissionais" },
-    { key: "financial", label: "Financeiro" },
-    { key: "stock", label: "Estoque" },
-    { key: "reports", label: "Relatórios" },
-    { key: "mural", label: "Mural de recados" },
-    { key: "notifications", label: "Notificações" },
-    { key: "settings", label: "Configurações" },
-  ];
+  const ACCESS_OPTIONS = APP_PAGE_KEYS.map((key) => ({
+    key,
+    label: APP_PAGE_LABELS[key],
+  }));
 
   const { data: companyRes } = useQuery({
     queryKey: ["company-by-id", companyId],

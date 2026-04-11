@@ -197,17 +197,6 @@ const AppStock = () => {
   return (
     <>
       <PageContainer
-        title="Estoque"
-        description={
-          <span className="block">
-            Controle de produtos e movimentações
-            {lowStockCount > 0 && (
-              <Badge variant="secondary" className="ml-2 bg-amber-500/20 text-amber-700">
-                {lowStockCount} com estoque baixo
-              </Badge>
-            )}
-          </span>
-        }
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setMovementModalOpen(true)}>
@@ -221,6 +210,14 @@ const AppStock = () => {
           </div>
         }
       >
+        {lowStockCount > 0 ? (
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+            <Badge variant="secondary" className="bg-amber-500/20 text-amber-700">
+              {lowStockCount} com estoque baixo
+            </Badge>
+            <span className="text-muted-foreground">Revise os itens na tabela abaixo.</span>
+          </div>
+        ) : null}
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="p-3 border-b border-border flex items-center justify-between">
             <label className="flex items-center gap-2 text-sm cursor-pointer">

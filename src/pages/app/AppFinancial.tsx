@@ -263,10 +263,7 @@ const AppFinancial = () => {
 
   if (!companyId) {
     return (
-      <PageContainer
-        title="Controle de Caixa"
-        description="Movimentação financeira da empresa"
-      >
+      <PageContainer>
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           Selecione uma empresa para visualizar o financeiro.
         </div>
@@ -275,10 +272,7 @@ const AppFinancial = () => {
   }
 
   return (
-    <PageContainer
-      title="Controle de Caixa"
-      description="Movimentação de entradas e saídas do caixa da empresa"
-    >
+    <PageContainer>
       {hasError && (
         <div className="mb-4 p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
           Erro ao carregar dados financeiros. Verifique se a tabela financial_records existe no banco.

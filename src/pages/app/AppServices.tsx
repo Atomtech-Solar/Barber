@@ -83,8 +83,6 @@ const AppServices = () => {
 
   return (
     <PageContainer
-      title="Serviços"
-      description="Cadastre e gerencie seus serviços"
       actions={
         <Button onClick={() => setCreating(true)}>
           <Plus size={16} className="mr-2" />

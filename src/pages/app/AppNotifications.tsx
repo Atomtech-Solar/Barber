@@ -84,17 +84,14 @@ const AppNotifications = () => {
 
   if (!companyId) {
     return (
-      <PageContainer title="Notificações" description="Alertas pessoais do mural">
+      <PageContainer>
         <p className="text-muted-foreground py-12 text-center">Selecione uma empresa.</p>
       </PageContainer>
     );
   }
 
   return (
-    <PageContainer
-      title="Notificações"
-      description="Menções e avisos gerais do mural. Não substitui o feed de recados."
-    >
+    <PageContainer>
       {isError && (
         <div className="mb-4 p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error instanceof Error ? error.message : "Erro ao carregar notificações."} Aplique as migrations{" "}

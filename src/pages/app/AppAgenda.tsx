@@ -358,7 +358,7 @@ const AppAgenda = () => {
     professionals.find((p) => p.id === profId)?.name ?? "—";
 
   return (
-    <PageContainer title="Agenda" description="Gerencie os agendamentos da equipe">
+    <PageContainer>
       {/* Legenda + navegação: no desktop ficam na mesma linha (lateral); no mobile a navegação fica embaixo */}
       <div className="w-full flex flex-col gap-4 mb-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

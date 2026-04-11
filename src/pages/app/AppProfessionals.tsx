@@ -152,8 +152,6 @@ const AppProfessionals = () => {
 
   return (
     <PageContainer
-      title="Profissionais"
-      description="Cadastre e gerencie sua equipe"
       actions={
         <Button onClick={() => setCreating(true)}>
           <Plus size={16} className="mr-2" />

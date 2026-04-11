@@ -20,6 +20,22 @@ export const APP_PAGE_KEYS = [
 
 export type AppPageKey = (typeof APP_PAGE_KEYS)[number];
 
+/** Rótulos para UI (ex.: permissões na equipe) — manter alinhado a cada chave em APP_PAGE_KEYS */
+export const APP_PAGE_LABELS: Record<AppPageKey, string> = {
+  dashboard: "Dashboard",
+  agenda: "Agenda",
+  clients: "Clientes",
+  services: "Serviços",
+  professionals: "Profissionais",
+  financial: "Financeiro",
+  stock: "Estoque",
+  payments: "Pagamentos",
+  reports: "Relatórios",
+  mural: "Mural de recados",
+  notifications: "Notificações",
+  settings: "Configurações",
+};
+
 function mapPathToPageKey(pathname: string): AppPageKey {
   if (pathname.startsWith("/app/agenda")) return "agenda";
   if (pathname.startsWith("/app/clients")) return "clients";

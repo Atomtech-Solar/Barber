@@ -289,8 +289,6 @@ const AppReports = () => {
   return (
     <>
       <PageContainer
-        title="Relatórios"
-        description="Análise gerencial completa"
         actions={
           <Button onClick={() => setExportModalOpen(true)}>
             <Download size={16} className="mr-2" />

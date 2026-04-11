@@ -126,7 +126,7 @@ const AppSettings = () => {
   };
 
   return (
-    <PageContainer title="Configurações" description="Configure sua empresa">
+    <PageContainer>
       <div className="w-full space-y-8">
         {landingUrl && (
           <div className="bg-card border border-border rounded-xl p-6 space-y-4">

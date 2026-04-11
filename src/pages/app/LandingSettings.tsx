@@ -241,7 +241,7 @@ export default function LandingSettings() {
 
   if (!currentCompany) {
     return (
-      <PageContainer title="Landing Page" description="Configure sua landing">
+      <PageContainer>
         <p className="text-muted-foreground">Selecione uma empresa para continuar.</p>
       </PageContainer>
     );
@@ -249,8 +249,6 @@ export default function LandingSettings() {
 
   return (
     <PageContainer
-      title="Landing Page"
-      description="Personalize a página pública da sua empresa"
       actions={
         <Link to="/app/settings">
           <Button variant="ghost" size="sm" className="gap-2">

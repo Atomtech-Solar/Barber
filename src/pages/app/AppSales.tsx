@@ -25,7 +25,7 @@ const AppSales = () => {
   const total = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
 
   return (
-    <PageContainer title="Vendas (PDV)" description="Ponto de venda rápido">
+    <PageContainer>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <h3 className="font-semibold">Serviços</h3>

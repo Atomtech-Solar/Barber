@@ -226,23 +226,17 @@ const AppDashboard = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Central estratégica do negócio</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <Button
-              key={f.id}
-              variant={rangeKey === f.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setRangeKey(f.id)}
-            >
-              {f.label}
-            </Button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {FILTERS.map((f) => (
+          <Button
+            key={f.id}
+            variant={rangeKey === f.id ? "default" : "outline"}
+            size="sm"
+            onClick={() => setRangeKey(f.id)}
+          >
+            {f.label}
+          </Button>
+        ))}
       </div>
 
       {summaryError ? (

@@ -66,10 +66,7 @@ const AppPayments = () => {
 
   return (
     <>
-      <PageContainer
-        title="Gestão de Pagamentos"
-        description="Configure salário fixo e comissão por profissional. Controle mensal transparente."
-      >
+      <PageContainer>
         <div>
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Carregando...</div>
