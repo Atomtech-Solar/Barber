@@ -21,6 +21,7 @@ import {
   Package,
   BarChart3,
   Settings,
+  Target,
   Plus,
   ChevronLeft,
   Menu,
@@ -63,24 +64,28 @@ type NavItemDef = {
   accessKey: AppPageKey;
 };
 
-const NAV_CORE: NavItemDef[] = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/app", accessKey: "dashboard" },
-  { label: "Agenda", icon: Calendar, path: "/app/agenda", accessKey: "agenda" },
-  { label: "Clientes", icon: Users, path: "/app/clients", accessKey: "clients" },
-  { label: "Serviços", icon: Scissors, path: "/app/services", accessKey: "services" },
-  { label: "Profissionais", icon: UserCheck, path: "/app/professionals", accessKey: "professionals" },
-  { label: "Financeiro", icon: DollarSign, path: "/app/financial", accessKey: "financial" },
-  { label: "Relatórios", icon: BarChart3, path: "/app/reports", accessKey: "reports" },
-];
-
-const NAV_OPERATIONS: NavItemDef[] = [
-  { label: "Estoque", icon: Package, path: "/app/stock", accessKey: "stock" },
-  { label: "Pagamentos", icon: Percent, path: "/app/payments", accessKey: "payments" },
-  { label: "Mural", icon: MessageSquare, path: "/app/mural", accessKey: "mural" },
-];
-
-const NAV_ACCOUNT: NavItemDef[] = [
-  { label: "Configurações", icon: Settings, path: "/app/settings", accessKey: "settings" },
+/** Blocos na ordem: topo empresa → separador → … → rodapé do usuário fica fora do `<nav>`. */
+const NAV_GROUPS: NavItemDef[][] = [
+  [
+    { label: "Dashboard", icon: LayoutDashboard, path: "/app", accessKey: "dashboard" },
+    { label: "Desempenho", icon: Target, path: "/app/performance", accessKey: "performance" },
+    { label: "Agenda", icon: Calendar, path: "/app/agenda", accessKey: "agenda" },
+    { label: "Clientes", icon: Users, path: "/app/clients", accessKey: "clients" },
+  ],
+  [
+    { label: "Serviços", icon: Scissors, path: "/app/services", accessKey: "services" },
+    { label: "Profissionais", icon: UserCheck, path: "/app/professionals", accessKey: "professionals" },
+    { label: "Mural", icon: MessageSquare, path: "/app/mural", accessKey: "mural" },
+  ],
+  [
+    { label: "Financeiro", icon: DollarSign, path: "/app/financial", accessKey: "financial" },
+    { label: "Pagamentos", icon: Percent, path: "/app/payments", accessKey: "payments" },
+    { label: "Relatórios", icon: BarChart3, path: "/app/reports", accessKey: "reports" },
+  ],
+  [
+    { label: "Estoque", icon: Package, path: "/app/stock", accessKey: "stock" },
+    { label: "Configurações", icon: Settings, path: "/app/settings", accessKey: "settings" },
+  ],
 ];
 
 function initialsFromName(name: string) {
@@ -121,9 +126,9 @@ const DashboardLayout = () => {
 
   const pageMeta = useMemo(() => getDashboardPageMeta(location.pathname), [location.pathname]);
 
-  const visibleCore = NAV_CORE.filter((item) => hasAccessToPage(item.accessKey));
-  const visibleOps = NAV_OPERATIONS.filter((item) => hasAccessToPage(item.accessKey));
-  const visibleAccount = NAV_ACCOUNT.filter((item) => hasAccessToPage(item.accessKey));
+  const visibleNavGroups = NAV_GROUPS.map((group) =>
+    group.filter((item) => hasAccessToPage(item.accessKey))
+  ).filter((group) => group.length > 0);
 
   const companyTagline =
     currentCompany?.slogan?.trim() ||
@@ -148,6 +153,9 @@ const DashboardLayout = () => {
         queryClient.refetchQueries({ queryKey: ["dashboard-revenue"] }),
         queryClient.refetchQueries({ queryKey: ["dashboard-activity"] }),
         queryClient.refetchQueries({ queryKey: ["dashboard-performance"] }),
+        queryClient.refetchQueries({ queryKey: ["performance-goals-block"] }),
+        queryClient.refetchQueries({ queryKey: ["performance-rankings-trend"] }),
+        queryClient.refetchQueries({ queryKey: ["performance-indicators"] }),
         queryClient.refetchQueries({ queryKey: ["dashboard-services"] }),
         queryClient.refetchQueries({ queryKey: ["financial"] }),
         queryClient.refetchQueries({ queryKey: ["clients"] }),
@@ -405,25 +413,13 @@ const DashboardLayout = () => {
         )}
       </div>
 
-      <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2 py-3 scrollbar-theme">
-        {renderNavBlock(visibleCore, opts.narrow, opts.onNavigate)}
-        {visibleOps.length > 0 && (
-          <>
-            <Separator className="bg-border/80" />
-            {!opts.narrow && (
-              <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Operação
-              </p>
-            )}
-            {renderNavBlock(visibleOps, opts.narrow, opts.onNavigate)}
-          </>
-        )}
-        {visibleAccount.length > 0 && (
-          <>
-            <Separator className="bg-border/80" />
-            {renderNavBlock(visibleAccount, opts.narrow, opts.onNavigate)}
-          </>
-        )}
+      <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-3 scrollbar-theme">
+        {visibleNavGroups.map((group, idx) => (
+          <div key={idx}>
+            {idx > 0 ? <Separator className="my-3 bg-border/80" /> : null}
+            {renderNavBlock(group, opts.narrow, opts.onNavigate)}
+          </div>
+        ))}
       </nav>
 
       <div className="shrink-0 border-t border-border p-2">

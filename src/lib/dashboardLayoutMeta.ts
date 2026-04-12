@@ -3,6 +3,11 @@
  */
 const ROUTE_META: { path: string; title: string; subtitle?: string }[] = [
   { path: "/app/settings/landing", title: "Landing page", subtitle: "Personalização do site público" },
+  {
+    path: "/app/performance",
+    title: "Desempenho",
+    subtitle: "Indicadores, metas e rankings no período que você escolher.",
+  },
   { path: "/app/notifications", title: "Notificações", subtitle: "Menções e avisos do mural" },
   { path: "/app/agenda", title: "Agenda", subtitle: "Agendamentos e disponibilidade" },
   { path: "/app/clients", title: "Clientes", subtitle: "Base e histórico de atendimentos" },

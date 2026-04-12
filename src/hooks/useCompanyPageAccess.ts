@@ -5,6 +5,7 @@ import { useTenant } from "@/contexts/TenantContext";
 
 export const APP_PAGE_KEYS = [
   "dashboard",
+  "performance",
   "agenda",
   "clients",
   "services",
@@ -23,6 +24,7 @@ export type AppPageKey = (typeof APP_PAGE_KEYS)[number];
 /** Rótulos para UI (ex.: permissões na equipe) — manter alinhado a cada chave em APP_PAGE_KEYS */
 export const APP_PAGE_LABELS: Record<AppPageKey, string> = {
   dashboard: "Dashboard",
+  performance: "Desempenho",
   agenda: "Agenda",
   clients: "Clientes",
   services: "Serviços",
@@ -37,6 +39,7 @@ export const APP_PAGE_LABELS: Record<AppPageKey, string> = {
 };
 
 function mapPathToPageKey(pathname: string): AppPageKey {
+  if (pathname.startsWith("/app/performance")) return "performance";
   if (pathname.startsWith("/app/agenda")) return "agenda";
   if (pathname.startsWith("/app/clients")) return "clients";
   if (pathname.startsWith("/app/services")) return "services";

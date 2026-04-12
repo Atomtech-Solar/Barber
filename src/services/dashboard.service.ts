@@ -95,7 +95,7 @@ export function getDashboardRange(key: DashboardRangeKey): DashboardRange {
   return { startDate: format(today, "yyyy-MM-01"), endDate: todayStr };
 }
 
-function getPreviousRange(range: DashboardRange): DashboardRange {
+export function getPreviousRange(range: DashboardRange): DashboardRange {
   const days = getRangeDays(range);
   const start = subDays(new Date(range.startDate), days);
   const end = subDays(new Date(range.startDate), 1);

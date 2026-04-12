@@ -22,6 +22,7 @@ const ClientLayout = lazy(() => import("./components/layouts/ClientLayout"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminCompanyTeam = lazy(() => import("./pages/admin/AdminCompanyTeam"));
 const AppDashboard = lazy(() => import("./pages/app/AppDashboard"));
+const AppPerformance = lazy(() => import("./pages/app/AppPerformance"));
 const AppAgenda = lazy(() => import("./pages/app/AppAgenda"));
 const AppClients = lazy(() => import("./pages/app/AppClients"));
 const AppServices = lazy(() => import("./pages/app/AppServices"));
@@ -94,6 +95,7 @@ const App = () => (
                 }
               >
                 <Route index element={<AppDashboard />} />
+                <Route path="performance" element={<AppPerformance />} />
                 <Route path="agenda" element={<AppAgenda />} />
                 <Route path="clients" element={<AppClients />} />
                 <Route path="services" element={<AppServices />} />

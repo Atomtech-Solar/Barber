@@ -96,7 +96,7 @@ const AppNotifications = () => {
         <div className="mb-4 p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error instanceof Error ? error.message : "Erro ao carregar notificações."} Aplique as migrations{" "}
           <code className="text-xs">051_notifications</code> e{" "}
-          <code className="text-xs">054_notifications_rename_read_is_read</code> no Supabase.
+          <code className="text-xs">055_notifications_rename_read_is_read</code> no Supabase.
         </div>
       )}
 
