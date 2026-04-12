@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { resetAppTheme } from "@/lib/companyTheme";
 import { SignUpForm, type SignUpFormValues } from "@/components/auth/SignUpForm";
+import { sanitizeInternalReturnTo } from "@/lib/safeRedirect";
 import { createClientAccount } from "@/services/clientAccount.service";
 import { supabase } from "@/lib/supabase";
 import { ArrowLeft, Scissors } from "lucide-react";
@@ -9,7 +10,7 @@ import { ArrowLeft, Scissors } from "lucide-react";
 export default function SignUp() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnTo = searchParams.get("returnTo") ?? "/client";
+  const returnTo = sanitizeInternalReturnTo(searchParams.get("returnTo"), "/client");
   const companySlug =
     searchParams.get("company") ??
     (() => {
@@ -64,8 +65,7 @@ export default function SignUp() {
       return;
     }
 
-    const path = returnTo.startsWith("/") ? returnTo : `/${returnTo}`;
-    navigate(path, { replace: true });
+    navigate(returnTo, { replace: true });
   };
 
   return (

@@ -13,7 +13,7 @@ function normalizeGrowthPercent(current: number, previous: number): number {
   return ((current - previous) / previous) * 100;
 }
 
-// Atenção: localStorage é vulnerável a XSS — dados aqui são apenas UX/mock até API dedicada existir.
+// Atenção: localStorage é vulnerável a XSS. Aqui só persistimos metas de UI (números/labels), nunca tokens ou senhas.
 
 const LS_KEY = "brynex_performance_extra_goals_v1";
 

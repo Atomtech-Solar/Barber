@@ -122,7 +122,7 @@ export const companyService = {
     };
 
     if (import.meta.env.DEV) {
-      console.log("[company.service] create payload:", { ...payload, owner_id: payload.owner_id });
+      console.info("[company.service] create: enviando dados da empresa (sem logar conteúdo completo).");
     }
 
     const { data, error } = await supabase

@@ -108,7 +108,8 @@ const DashboardLayout = () => {
   const location = useLocation();
   const { currentCompany, setCurrentCompany } = useTenant();
   const { profile, user, signOut } = useAuth();
-  const { hasAccessToPage, hasAccessToPath, isLoading: accessLoading } = useCompanyPageAccess();
+  const { hasAccessToPage, hasAccessToPath, isLoading: accessLoading, refetchAccess } =
+    useCompanyPageAccess();
   const canAccessCurrentPath = hasAccessToPath(location.pathname);
 
   /** Troca de empresa na UI: apenas dono da plataforma (role owner). Demais perfis veem só o contexto da empresa atual. */
@@ -527,8 +528,18 @@ const DashboardLayout = () => {
               <Outlet />
             </RouteErrorBoundary>
           ) : (
-            <div className="flex min-h-[200px] items-center justify-center">
-              <p className="text-center text-muted-foreground">Você não possui acesso a esta página.</p>
+            <div className="flex min-h-[240px] flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border bg-muted/20 p-8 text-center">
+              <p className="text-sm text-muted-foreground max-w-md">
+                Você não tem permissão para esta área. Se acabou de receber acesso, atualize as permissões.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button type="button" variant="default" size="sm" onClick={() => void refetchAccess()}>
+                  Atualizar permissões
+                </Button>
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link to="/app">Ir ao painel</Link>
+                </Button>
+              </div>
             </div>
           )}
         </main>

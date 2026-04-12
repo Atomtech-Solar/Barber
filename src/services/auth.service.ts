@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { logClientError } from "@/lib/supabaseErrors";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import type { Profile } from "@/types/database.types";
 
@@ -128,11 +129,11 @@ export const authService = {
       .maybeSingle();
 
     if (error) {
-      console.error("[auth.service] getProfile error:", JSON.stringify(error, null, 2));
+      logClientError("auth.service.getProfile", error);
       return { data: null, error };
     }
     if (!data) {
-      console.warn("[auth.service] getProfile: perfil não encontrado para userId:", userId);
+      logClientError("auth.service.getProfile.empty", new Error("perfil ausente"));
       return { data: null, error: null };
     }
 
@@ -143,7 +144,7 @@ export const authService = {
     const { data, error } = await supabase.rpc("get_own_profile");
     if (error) {
       if (error.code === "42883") return null; // function does not exist - fallback
-      console.error("[auth.service] get_own_profile RPC error:", JSON.stringify(error, null, 2));
+      logClientError("auth.service.get_own_profile", error);
       return { data: null, error };
     }
     const row = Array.isArray(data) ? data[0] : data;

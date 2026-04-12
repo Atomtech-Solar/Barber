@@ -14,10 +14,19 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
+import { FIELD_LIMITS } from "@/lib/formLimits";
 
 const schema = z.object({
-  email: z.string().email("Email inválido"),
-  password: z.string().min(1, "Senha obrigatória"),
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email obrigatório")
+    .email("Email inválido")
+    .max(FIELD_LIMITS.emailMax, "Email muito longo"),
+  password: z
+    .string()
+    .min(1, "Senha obrigatória")
+    .max(FIELD_LIMITS.passwordMax, "Senha muito longa"),
 });
 
 export type LoginFormValues = z.infer<typeof schema>;

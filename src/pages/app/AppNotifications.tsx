@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import PageContainer from "@/components/shared/PageContainer";
+import { AsyncContent } from "@/components/shared/AsyncContent";
 import { NotificationCard } from "@/components/notifications/NotificationCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,7 @@ const AppNotifications = () => {
     isLoading,
     isError,
     error,
+    refetch,
   } = useQuery({
     queryKey: ["notifications", companyId, limit],
     queryFn: async () => {
@@ -90,31 +92,43 @@ const AppNotifications = () => {
     );
   }
 
+  const loadingSkeleton = (
+    <div className="space-y-3 max-w-2xl">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="h-28 rounded-xl w-full" />
+      ))}
+    </div>
+  );
+
+  const emptyState = (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 py-16 px-6 text-center max-w-2xl">
+      <BellOff className="h-12 w-12 text-muted-foreground mb-4" aria-hidden />
+      <h3 className="text-lg font-medium mb-1">Nenhuma notificação por aqui</h3>
+      <p className="text-sm text-muted-foreground max-w-md">
+        Quando alguém usar @ com seu nome ou @todos no mural, aparecerá aqui.
+      </p>
+    </div>
+  );
+
+  const devMigrationHint =
+    import.meta.env.DEV ? (
+      <p>
+        Em desenvolvimento: confira se as migrations de notificações (051 e 055) foram aplicadas no
+        Supabase.
+      </p>
+    ) : null;
+
   return (
     <PageContainer>
-      {isError && (
-        <div className="mb-4 p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error instanceof Error ? error.message : "Erro ao carregar notificações."} Aplique as migrations{" "}
-          <code className="text-xs">051_notifications</code> e{" "}
-          <code className="text-xs">055_notifications_rename_read_is_read</code> no Supabase.
-        </div>
-      )}
-
-      {isLoading ? (
-        <div className="space-y-3 max-w-2xl">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-xl w-full" />
-          ))}
-        </div>
-      ) : list.length === 0 && !isError ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 py-16 px-6 text-center max-w-2xl">
-          <BellOff className="h-12 w-12 text-muted-foreground mb-4" aria-hidden />
-          <h3 className="text-lg font-medium mb-1">Você não tem notificações ainda</h3>
-          <p className="text-sm text-muted-foreground max-w-md">
-            Quando alguém usar @ com seu nome ou @todos no mural, aparecerá aqui.
-          </p>
-        </div>
-      ) : !isError ? (
+      <AsyncContent
+        isLoading={isLoading}
+        loading={loadingSkeleton}
+        error={isError ? error : null}
+        onRetry={() => void refetch()}
+        errorExtra={isError ? devMigrationHint : undefined}
+        isEmpty={!isError && list.length === 0}
+        empty={emptyState}
+      >
         <div className="space-y-10 max-w-2xl">
           {mentions.length > 0 && (
             <section aria-labelledby="notif-mentions-heading">
@@ -162,7 +176,7 @@ const AppNotifications = () => {
             </Button>
           )}
         </div>
-      ) : null}
+      </AsyncContent>
     </PageContainer>
   );
 };

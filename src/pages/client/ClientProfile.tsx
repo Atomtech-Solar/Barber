@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { getSafeClientMessage, logClientError } from "@/lib/supabaseErrors";
 import { maskCpf } from "@/lib/masks";
 import { ArrowLeft } from "lucide-react";
 
@@ -41,8 +42,12 @@ const ClientProfile = () => {
       p_cpf: form.cpf.trim() || null,
     });
     if (error) {
-      console.error("[ClientProfile] update_my_profile error:", error);
-      toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar. Tente novamente." });
+      logClientError("ClientProfile.update_my_profile", error);
+      toast({
+        variant: "destructive",
+        title: "Não foi possível salvar",
+        description: getSafeClientMessage(error),
+      });
       setSaving(false);
       return;
     }

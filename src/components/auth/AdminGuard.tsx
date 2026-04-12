@@ -1,22 +1,17 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { AuthLoadingScreen } from "@/components/shared/AuthLoadingScreen";
 import { Button } from "@/components/ui/button";
 
 interface AdminGuardProps {
   children: React.ReactNode;
 }
 
-const LoadingScreen = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="animate-pulse text-muted-foreground">Carregando...</div>
-  </div>
-);
-
 export function AdminGuard({ children }: AdminGuardProps) {
   const { initialized, isAuthenticated, profile, profileLoadError, refreshProfile, signOut } = useAuth();
 
   // 1. Aguarda conclusão da checagem de auth (evita redirect prematuro)
-  if (!initialized) return null;
+  if (!initialized) return <AuthLoadingScreen />;
 
   if (!isAuthenticated) {
     return <Navigate to="/auth/login?returnTo=%2Fowner%2Fdashboard&loginOnly=1" replace />;
@@ -46,7 +41,7 @@ export function AdminGuard({ children }: AdminGuardProps) {
         </div>
       );
     }
-    return <LoadingScreen />;
+    return <AuthLoadingScreen />;
   }
 
   // 3. Segurança: validação real deve ocorrer na API

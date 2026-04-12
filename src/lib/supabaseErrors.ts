@@ -24,12 +24,21 @@ export function getSafeClientMessage(error: unknown): string {
 
   if (error instanceof Error) {
     const m = error.message;
+    const lower = m.toLowerCase();
+    if (
+      lower.includes("invalid login credentials") ||
+      lower.includes("invalid email or password") ||
+      lower.includes("invalid credentials")
+    ) {
+      return "Email ou senha incorretos. Tente novamente.";
+    }
     if (
       m === "Empresa inválida." ||
       m === "Identificador inválido." ||
       m.includes("obrigatório") ||
       m.includes("Valor fora do intervalo") ||
-      m.includes("Valor inválido")
+      m.includes("Valor inválido") ||
+      m.includes("Mensagem vazia")
     ) {
       return m;
     }

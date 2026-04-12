@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { logClientError } from "@/lib/supabaseErrors";
+import { AuthLoadingScreen } from "@/components/shared/AuthLoadingScreen";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantProvider } from "@/contexts/TenantContext";
@@ -53,12 +54,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-const LoadingScreen = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="animate-pulse text-muted-foreground">Carregando...</div>
-  </div>
-);
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -67,7 +62,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Suspense fallback={<LoadingScreen />}>
+          <Suspense fallback={<AuthLoadingScreen />}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth/login" element={<Login />} />

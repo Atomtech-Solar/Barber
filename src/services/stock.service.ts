@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { logClientError } from "@/lib/supabaseErrors";
 import { requireCompanyId, requireUuid } from "@/lib/companyScope";
 import type {
   StockProduct,
@@ -158,7 +159,7 @@ export const stockService = {
         created_by: params.created_by ?? null,
       });
       if (financialError) {
-        console.warn("[stock] Registro financeiro da compra inicial não criado:", financialError);
+        logClientError("stock.createProduct.initialPurchase", financialError);
       }
     }
     return { data: product, error: null };
@@ -280,7 +281,7 @@ export const stockService = {
           created_by: params.created_by,
         });
         if (financialError) {
-          console.warn("[stock] Registro financeiro de compra não criado:", financialError);
+          logClientError("stock.createMovement.entryFinance", financialError);
         }
       }
     } else if (params.movement_type === "sale") {
@@ -296,7 +297,7 @@ export const stockService = {
           created_by: params.created_by,
         });
         if (financialError) {
-          console.warn("[stock] Registro financeiro de venda não criado:", financialError);
+          logClientError("stock.createMovement.saleFinance", financialError);
         }
       }
     }

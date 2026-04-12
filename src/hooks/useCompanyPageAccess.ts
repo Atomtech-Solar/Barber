@@ -60,7 +60,7 @@ export function useCompanyPageAccess() {
   const { currentCompany } = useTenant();
   const isOwner = profile?.role === "owner";
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch: refetchAccess } = useQuery({
     queryKey: ["company-member-access", currentCompany?.id, user?.id],
     queryFn: async () => {
       const { data: row, error } = await supabase
@@ -92,5 +92,6 @@ export function useCompanyPageAccess() {
     allowedPages,
     hasAccessToPage,
     hasAccessToPath,
+    refetchAccess,
   };
 }

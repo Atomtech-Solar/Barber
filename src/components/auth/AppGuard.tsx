@@ -2,6 +2,7 @@ import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
 import { useCompanyStaffMembership } from "@/hooks/useCompanyStaffMembership";
+import { AuthLoadingScreen } from "@/components/shared/AuthLoadingScreen";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert } from "lucide-react";
 
@@ -21,7 +22,7 @@ export function AppGuard({ children }: AppGuardProps) {
   const { currentCompany, isLoading: tenantLoading } = useTenant();
   const { isStaffViaMembership, isResolvingStaff, staffCheckFailed } = useCompanyStaffMembership();
 
-  if (!initialized) return null;
+  if (!initialized) return <AuthLoadingScreen />;
 
   if (tenantLoading || isResolvingStaff) {
     return (

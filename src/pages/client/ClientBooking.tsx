@@ -169,11 +169,6 @@ const ClientBookingInner = () => {
         client_phone: clientForm.phone,
         client_email: clientForm.email || undefined,
       };
-      if (import.meta.env.DEV) {
-        console.log("[ClientBooking] company_id:", companyId);
-        console.log("[ClientBooking] appointment payload:", payload);
-      }
-
       const wantsAccount =
         !user && clientForm.wantsAccount && clientForm.password.length >= 6;
 

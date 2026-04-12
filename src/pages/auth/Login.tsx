@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { resetAppTheme } from "@/lib/companyTheme";
+import { sanitizeInternalReturnTo } from "@/lib/safeRedirect";
+import { getSafeClientMessage } from "@/lib/supabaseErrors";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -59,7 +61,7 @@ export default function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnTo = searchParams.get("returnTo") ?? "/client";
+  const returnTo = sanitizeInternalReturnTo(searchParams.get("returnTo"), "/client");
   const loginOnly = searchParams.get("loginOnly") === "1";
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -77,11 +79,10 @@ export default function Login() {
     const { error: err } = await signIn(values.email, values.password);
     if (err) {
       setIsLoading(false);
-      setError(err instanceof Error ? err.message : "Email ou senha incorretos. Tente novamente.");
+      setError(getSafeClientMessage(err));
       return;
     }
-    const path = returnTo.startsWith("/") ? returnTo : `/${returnTo}`;
-    navigate(path, { replace: true });
+    navigate(returnTo, { replace: true });
   };
 
   return (

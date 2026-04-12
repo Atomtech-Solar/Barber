@@ -12,12 +12,24 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { maskPhone } from "@/lib/masks";
+import { FIELD_LIMITS } from "@/lib/formLimits";
 
 const schema = z.object({
-  fullName: z.string().min(2, "Nome deve ter ao menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
-  phone: z.string().optional(),
-  password: z.string().min(6, "Senha deve ter ao menos 6 caracteres"),
+  fullName: z
+    .string()
+    .trim()
+    .min(2, "Nome deve ter ao menos 2 caracteres")
+    .max(FIELD_LIMITS.fullNameMax, "Nome muito longo"),
+  email: z
+    .string()
+    .trim()
+    .email("Email inválido")
+    .max(FIELD_LIMITS.emailMax, "Email muito longo"),
+  phone: z.string().max(FIELD_LIMITS.phoneMax, "Telefone muito longo").optional(),
+  password: z
+    .string()
+    .min(6, "Senha deve ter ao menos 6 caracteres")
+    .max(FIELD_LIMITS.passwordMax, "Senha muito longa"),
 });
 
 export type SignUpFormValues = z.infer<typeof schema>;
