@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId } from "@/lib/companyScope";
 import { addDays, differenceInCalendarDays, format, startOfMonth, startOfWeek, subDays } from "date-fns";
 
 export type DashboardRangeKey = "today" | "7d" | "30d" | "month";
@@ -121,6 +122,7 @@ function isValidIsoDay(value: string | null | undefined): value is string {
 
 export const dashboardService = {
   async getSummary(companyId: string, range: DashboardRange) {
+    requireCompanyId(companyId);
     const prevRange = getPreviousRange(range);
 
     const [{ data: appointments }, { data: revenueNow }, { data: revenuePrev }] = await Promise.all([
@@ -166,6 +168,7 @@ export const dashboardService = {
   },
 
   async getRevenue(companyId: string, range: DashboardRange) {
+    requireCompanyId(companyId);
     const { data, error } = await supabase
       .from("financial_records")
       .select("amount, created_at")
@@ -196,6 +199,7 @@ export const dashboardService = {
   },
 
   async getTopServices(companyId: string, range: DashboardRange) {
+    requireCompanyId(companyId);
     const { data: appointments, error } = await supabase
       .from("appointments")
       .select("status, appointment_services(service_id)")
@@ -230,6 +234,7 @@ export const dashboardService = {
   },
 
   async getPayments(companyId: string, range: DashboardRange) {
+    requireCompanyId(companyId);
     const { data, error } = await supabase
       .from("financial_records")
       .select("source, amount")
@@ -269,6 +274,7 @@ export const dashboardService = {
   },
 
   async getRecentActivity(companyId: string, range: DashboardRange) {
+    requireCompanyId(companyId);
     const { data: appointments, error } = await supabase
       .from("appointments")
       .select("id, date, start_time, client_name, professional_id, status, appointment_services(service_id)")
@@ -345,6 +351,7 @@ export const dashboardService = {
   },
 
   async getBusinessPerformance(companyId: string, range: DashboardRange) {
+    requireCompanyId(companyId);
     const endDate = new Date(range.endDate);
     const defaultGoalPeriod: DashboardGoalPerformance["goalType"] = "weekly";
     const dailyRange: DashboardRange = { startDate: range.endDate, endDate: range.endDate };

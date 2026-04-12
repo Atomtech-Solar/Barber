@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId, requireUuid } from "@/lib/companyScope";
 import type { Professional, WorkingHour } from "@/types/database.types";
 
 export interface CreateProfessionalParams {
@@ -28,6 +29,7 @@ export interface WorkingHourInput {
 
 export const professionalService = {
   async listByCompany(companyId: string) {
+    requireCompanyId(companyId);
     const { data, error } = await supabase
       .from("professionals")
       .select("*")
@@ -37,6 +39,7 @@ export const professionalService = {
   },
 
   async listByCompanyWithServices(companyId: string) {
+    requireCompanyId(companyId);
     const { data: professionals, error: profError } = await supabase
       .from("professionals")
       .select(`
@@ -77,6 +80,7 @@ export const professionalService = {
 
   /** Lista profissionais ativos com nomes dos serviços (para landing pública) */
   async listByCompanyForSite(companyId: string) {
+    requireCompanyId(companyId);
     const { data: professionals, error: profError } = await supabase
       .from("professionals")
       .select(`
@@ -118,6 +122,7 @@ export const professionalService = {
   },
 
   async getById(id: string) {
+    requireUuid(id);
     const { data, error } = await supabase
       .from("professionals")
       .select("*")
@@ -131,7 +136,9 @@ export const professionalService = {
    * Ex: se selecionou barba + cabelo, só mostra quem faz os dois.
    */
   async getProfessionalsByServiceIds(companyId: string, serviceIds: string[]) {
+    requireCompanyId(companyId);
     if (serviceIds.length === 0) return { data: [] as Professional[], error: null };
+    serviceIds.forEach((sid) => requireUuid(sid));
 
     const { data: links, error: linkError } = await supabase
       .from("professional_services")
@@ -168,6 +175,8 @@ export const professionalService = {
   },
 
   async create(params: CreateProfessionalParams, serviceIds?: string[], workingHours?: WorkingHourInput[]) {
+    requireCompanyId(params.company_id);
+    serviceIds?.forEach((sid) => requireUuid(sid));
     const { data: prof, error: profError } = await supabase
       .from("professionals")
       .insert({
@@ -209,6 +218,8 @@ export const professionalService = {
   },
 
   async update(id: string, params: UpdateProfessionalParams, serviceIds?: string[], workingHours?: WorkingHourInput[]) {
+    requireUuid(id);
+    serviceIds?.forEach((sid) => requireUuid(sid));
     const { data, error } = await supabase
       .from("professionals")
       .update({ ...params, updated_at: new Date().toISOString() })
@@ -245,6 +256,7 @@ export const professionalService = {
   },
 
   async delete(id: string) {
+    requireUuid(id);
     const { error } = await supabase.from("professionals").delete().eq("id", id);
     return { error };
   },

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId, requireUuid } from "@/lib/companyScope";
 import type {
   StockProduct,
   StockMovement,
@@ -76,6 +77,7 @@ export interface CreateMovementParams {
 
 export const stockService = {
   async listProducts(companyId: string, includeInactive = false) {
+    requireCompanyId(companyId);
     let query = supabase
       .from("stock_products")
       .select("*")
@@ -90,6 +92,8 @@ export const stockService = {
   },
 
   async getProductById(companyId: string, id: string) {
+    requireCompanyId(companyId);
+    requireUuid(id);
     const { data, error } = await supabase
       .from("stock_products")
       .select("*")
@@ -107,6 +111,7 @@ export const stockService = {
   },
 
   async createProduct(companyId: string, params: CreateProductParams) {
+    requireCompanyId(companyId);
     const packageQuantity = Number(params.package_quantity);
     const initialPackages = Number(params.initial_packages ?? 0);
     const costPrice = Number(params.cost_price);
@@ -164,6 +169,8 @@ export const stockService = {
     id: string,
     params: Partial<CreateProductParams> & { is_active?: boolean }
   ) {
+    requireCompanyId(companyId);
+    requireUuid(id);
     const { data, error } = await supabase
       .from("stock_products")
       .update({
@@ -178,6 +185,8 @@ export const stockService = {
   },
 
   async deleteProduct(companyId: string, id: string) {
+    requireCompanyId(companyId);
+    requireUuid(id);
     const { error } = await supabase
       .from("stock_products")
       .delete()
@@ -187,6 +196,8 @@ export const stockService = {
   },
 
   async createMovement(companyId: string, params: CreateMovementParams) {
+    requireCompanyId(companyId);
+    requireUuid(params.product_id);
     const quantity = Number(params.quantity);
     if (!Number.isFinite(quantity) || quantity <= 0) {
       throw new Error("A quantidade deve ser maior que zero.");
@@ -200,7 +211,7 @@ export const stockService = {
       .single();
 
     if (productError || !product) {
-      throw new Error(productError?.message ?? "Produto não encontrado.");
+      throw new Error("Produto não encontrado.");
     }
 
     if (!["unit", "ml", "g"].includes(String(product.unit_type))) {
@@ -233,7 +244,7 @@ export const stockService = {
       .eq("id", params.product_id);
 
     if (updateError) {
-      throw new Error(updateError.message);
+      throw new Error("Não foi possível atualizar o estoque.");
     }
 
     const { data, error } = await supabase
@@ -298,6 +309,8 @@ export const stockService = {
     productId: string,
     opts?: { limit?: number; offset?: number }
   ) {
+    requireCompanyId(companyId);
+    requireUuid(productId);
     const limit = opts?.limit ?? 50;
     const offset = opts?.offset ?? 0;
     const { data, error } = await supabase
@@ -311,12 +324,15 @@ export const stockService = {
   },
 
   async searchProducts(companyId: string, search: string) {
+    requireCompanyId(companyId);
+    const q = search.trim().slice(0, 100).replace(/%/g, "");
+    if (!q) return { data: [] as StockProduct[], error: null };
     const { data: products, error } = await supabase
       .from("stock_products")
       .select("*")
       .eq("company_id", companyId)
       .eq("is_active", true)
-      .ilike("name", `%${search}%`)
+      .ilike("name", `%${q}%`)
       .order("name")
       .limit(20);
     if (error) return { data: [] as StockProduct[], error };

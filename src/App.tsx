@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { logClientError } from "@/lib/supabaseErrors";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantProvider } from "@/contexts/TenantContext";
@@ -42,7 +43,16 @@ const ClientBooking = lazy(() => import("./pages/client/ClientBooking"));
 const ClientAppointments = lazy(() => import("./pages/client/ClientAppointments"));
 const ClientProfile = lazy(() => import("./pages/client/ClientProfile"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      onError: (err) => logClientError("react-query:query", err),
+    },
+    mutations: {
+      onError: (err) => logClientError("react-query:mutation", err),
+    },
+  },
+});
 const LoadingScreen = () => (
   <div className="min-h-screen flex items-center justify-center">
     <div className="animate-pulse text-muted-foreground">Carregando...</div>

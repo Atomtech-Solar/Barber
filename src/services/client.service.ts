@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId, requireUuid } from "@/lib/companyScope";
 import type { CompanyClient } from "@/types/database.types";
 
 export interface CompanyClientWithVisitCount extends CompanyClient {
@@ -9,6 +10,7 @@ export interface CompanyClientWithVisitCount extends CompanyClient {
 
 export const clientService = {
   async listByCompany(companyId: string) {
+    requireCompanyId(companyId);
     const { data: clients, error } = await supabase.rpc("list_company_clients", {
       p_company_id: companyId,
     });
@@ -56,6 +58,7 @@ export const clientService = {
   },
 
   async getById(id: string) {
+    requireUuid(id);
     const { data, error } = await supabase
       .from("company_clients")
       .select("*")
@@ -65,6 +68,7 @@ export const clientService = {
   },
 
   async create(companyId: string, params: { full_name: string; phone?: string; email?: string; cpf?: string; notes?: string }) {
+    requireCompanyId(companyId);
     const { data: rpcResult, error: rpcError } = await supabase.rpc("create_company_client", {
       p_company_id: companyId,
       p_full_name: params.full_name,
@@ -91,6 +95,7 @@ export const clientService = {
     id: string,
     params: { full_name?: string; phone?: string; email?: string; cpf?: string; notes?: string }
   ) {
+    requireUuid(id);
     const { data: rpcResult, error: rpcError } = await supabase.rpc("update_company_client", {
       p_client_id: id,
       p_full_name: params.full_name ?? null,
@@ -110,6 +115,7 @@ export const clientService = {
   },
 
   async delete(id: string) {
+    requireUuid(id);
     const { data: rpcResult, error: rpcError } = await supabase.rpc("delete_company_client", {
       p_client_id: id,
     });
@@ -128,6 +134,8 @@ export const clientService = {
    * Requer migration 041 (get_client_history).
    */
   async getClientHistory(companyId: string, companyClientId: string) {
+    requireCompanyId(companyId);
+    requireUuid(companyClientId);
     const { data, error } = await supabase.rpc("get_client_history", {
       p_company_id: companyId,
       p_company_client_id: companyClientId,
@@ -171,6 +179,7 @@ export const clientService = {
     companyId: string,
     params: { full_name: string; phone?: string; email?: string }
   ) {
+    requireCompanyId(companyId);
     const { data, error } = await supabase.rpc("register_client_for_company", {
       p_company_id: companyId,
       p_full_name: params.full_name,

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireUuid } from "@/lib/companyScope";
 import type { RecadoComment } from "@/types/database.types";
 
 export interface RecadoCommentWithAuthor extends RecadoComment {
@@ -7,6 +8,7 @@ export interface RecadoCommentWithAuthor extends RecadoComment {
 
 export const recadoCommentsService = {
   async listByRecado(recadoId: string) {
+    requireUuid(recadoId);
     const { data: rows, error } = await supabase
       .from("recado_comments")
       .select("*")
@@ -36,6 +38,9 @@ export const recadoCommentsService = {
   },
 
   async createComment(recadoId: string, mensagem: string) {
+    requireUuid(recadoId);
+    const trimmed = mensagem.trim();
+    if (!trimmed) return { data: null, error: new Error("Mensagem vazia.") };
     const { data: userData, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userData.user) return { data: null, error: userErr ?? new Error("Sessão inválida") };
 
@@ -44,7 +49,7 @@ export const recadoCommentsService = {
       .insert({
         recado_id: recadoId,
         user_id: userData.user.id,
-        mensagem: mensagem.trim(),
+        mensagem: trimmed,
       })
       .select()
       .single();
@@ -53,6 +58,7 @@ export const recadoCommentsService = {
   },
 
   async deleteComment(commentId: string) {
+    requireUuid(commentId);
     const { error } = await supabase.from("recado_comments").delete().eq("id", commentId);
     return { error };
   },

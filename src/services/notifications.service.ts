@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId, requireUuid } from "@/lib/companyScope";
 import type { AppNotification, CreateNotificationInput } from "@/types/database.types";
 
 export interface ListNotificationsOptions {
@@ -25,6 +26,7 @@ function mapNotificationRow(row: Record<string, unknown>): AppNotification {
 
 export const notificationsService = {
   async getNotifications(companyId: string, options: ListNotificationsOptions = {}) {
+    requireCompanyId(companyId);
     const limit = options.limit ?? 20;
     const offset = options.offset ?? 0;
     const { data, error } = await supabase
@@ -44,6 +46,7 @@ export const notificationsService = {
   },
 
   async getUnreadCount(companyId: string) {
+    requireCompanyId(companyId);
     const base = () =>
       supabase
         .from("notifications")
@@ -60,6 +63,7 @@ export const notificationsService = {
   },
 
   async markAsRead(id: string) {
+    requireUuid(id);
     const { error } = await supabase.rpc("mark_notification_read", { p_id: id });
     return { error };
   },
@@ -69,6 +73,10 @@ export const notificationsService = {
    * Menções e @todos no mural são geradas por triggers no Supabase.
    */
   async createNotification(input: CreateNotificationInput) {
+    requireCompanyId(input.company_id);
+    requireUuid(input.user_id);
+    if (input.recado_id) requireUuid(input.recado_id);
+    if (input.comment_id) requireUuid(input.comment_id);
     const { data, error } = await supabase.rpc("create_notification", {
       p_user_id: input.user_id,
       p_company_id: input.company_id,

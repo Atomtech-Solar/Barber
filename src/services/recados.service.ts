@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId, requireUuid } from "@/lib/companyScope";
 import type { Recado, RecadoPrioridade } from "@/types/database.types";
 
 export interface MuralMentionProfileRow {
@@ -30,6 +31,8 @@ export interface UpdateRecadoParams {
 }
 
 async function syncRecadoMentions(recadoId: string, mentionedUserIds: string[]) {
+  requireUuid(recadoId);
+  mentionedUserIds.forEach((uid) => requireUuid(uid));
   const unique = [...new Set(mentionedUserIds)];
   const { error: delErr } = await supabase.from("recado_mentions").delete().eq("recado_id", recadoId);
   if (delErr) return { error: delErr };
@@ -42,6 +45,7 @@ async function syncRecadoMentions(recadoId: string, mentionedUserIds: string[]) 
 
 export const recadosService = {
   async listMuralMentionProfiles(companyId: string) {
+    requireCompanyId(companyId);
     const { data, error } = await supabase.rpc("list_mural_mention_profiles", {
       p_company_id: companyId,
     });
@@ -51,6 +55,7 @@ export const recadosService = {
   },
 
   async getRecados(companyId: string) {
+    requireCompanyId(companyId);
     const { data, error } = await supabase
       .from("recados")
       .select("*")
@@ -61,6 +66,7 @@ export const recadosService = {
   },
 
   async createRecado(companyId: string, params: CreateRecadoParams) {
+    requireCompanyId(companyId);
     const { data, error } = await supabase
       .from("recados")
       .insert({
@@ -88,6 +94,8 @@ export const recadosService = {
   },
 
   async updateRecado(companyId: string, id: string, params: UpdateRecadoParams) {
+    requireCompanyId(companyId);
+    requireUuid(id);
     const payload: Record<string, unknown> = {};
     if (params.titulo !== undefined) payload.titulo = params.titulo.trim();
     if (params.mensagem !== undefined) payload.mensagem = params.mensagem.trim();
@@ -112,6 +120,8 @@ export const recadosService = {
   },
 
   async deleteRecado(companyId: string, id: string) {
+    requireCompanyId(companyId);
+    requireUuid(id);
     const { error } = await supabase.from("recados").delete().eq("id", id).eq("company_id", companyId);
     return { error };
   },

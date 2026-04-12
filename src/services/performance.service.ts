@@ -6,6 +6,7 @@ import {
   type DashboardRange,
   type DashboardSummary,
 } from "@/services/dashboard.service";
+import { requireCompanyId } from "@/lib/companyScope";
 
 function normalizeGrowthPercent(current: number, previous: number): number {
   if (previous <= 0) return current > 0 ? 100 : 0;
@@ -179,6 +180,7 @@ export const performanceService = {
     companyId: string,
     range: DashboardRange
   ): Promise<{ data: PerformanceIndicatorSnapshot; error: unknown }> {
+    requireCompanyId(companyId);
     const previousRange = getPreviousRange(range);
     const [currRes, prevRes] = await Promise.all([
       dashboardService.getSummary(companyId, range),
@@ -203,6 +205,7 @@ export const performanceService = {
   },
 
   listStoredGoals(companyId: string): StoredPerformanceGoal[] {
+    requireCompanyId(companyId);
     const store = readGoalStore();
     return (store[companyId] ?? []).slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   },
@@ -211,6 +214,7 @@ export const performanceService = {
     companyId: string,
     input: Omit<StoredPerformanceGoal, "id" | "company_id" | "created_at">
   ): StoredPerformanceGoal {
+    requireCompanyId(companyId);
     const store = readGoalStore();
     const list = store[companyId] ?? [];
     const row: StoredPerformanceGoal = {
@@ -225,6 +229,7 @@ export const performanceService = {
   },
 
   updateStoredGoal(companyId: string, id: string, patch: Partial<StoredPerformanceGoal>): StoredPerformanceGoal | null {
+    requireCompanyId(companyId);
     const store = readGoalStore();
     const list = store[companyId] ?? [];
     const idx = list.findIndex((g) => g.id === id);
@@ -238,6 +243,7 @@ export const performanceService = {
   },
 
   deleteStoredGoal(companyId: string, id: string): boolean {
+    requireCompanyId(companyId);
     const store = readGoalStore();
     const list = store[companyId] ?? [];
     const filtered = list.filter((g) => g.id !== id);
@@ -252,6 +258,7 @@ export const performanceService = {
     range: DashboardRange,
     goals: StoredPerformanceGoal[]
   ): Promise<PerformanceGoalWithProgress[]> {
+    requireCompanyId(companyId);
     const { data: summary } = await dashboardService.getSummary(companyId, range);
     return goals.map((g) => {
       const current = metricCurrent(g.metric, summary);
@@ -271,6 +278,7 @@ export const performanceService = {
    * Segurança: agregação real deve ser validada na API em produção.
    */
   async getRankingsWithTrend(companyId: string, range: DashboardRange) {
+    requireCompanyId(companyId);
     const previousRange = getPreviousRange(range);
     const [currRes, prevRes] = await Promise.all([
       dashboardService.getBusinessPerformance(companyId, range),

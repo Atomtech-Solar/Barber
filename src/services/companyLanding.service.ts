@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId } from "@/lib/companyScope";
 import type { CompanyLandingSettings, AboutTitleAccent } from "@/types/database.types";
 
 export interface LandingSettingsInput {
@@ -29,6 +30,7 @@ export interface LandingSettingsInput {
 
 export const companyLandingService = {
   async getByCompanyId(companyId: string) {
+    requireCompanyId(companyId);
     const { data, error } = await supabase
       .from("company_landing_settings")
       .select("*")
@@ -38,6 +40,7 @@ export const companyLandingService = {
   },
 
   async upsertLandingSettings(companyId: string, input: LandingSettingsInput) {
+    requireCompanyId(companyId);
     const payload = {
       company_id: companyId,
       hero_title: input.hero_title ?? null,
@@ -82,6 +85,7 @@ export const companyLandingService = {
     companyId: string,
     input: Partial<LandingSettingsInput>
   ) {
+    requireCompanyId(companyId);
     const payload: Record<string, unknown> = {
       ...input,
       updated_at: new Date().toISOString(),

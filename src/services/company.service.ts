@@ -1,4 +1,6 @@
 import { supabase } from "@/lib/supabase";
+import { requireUuid } from "@/lib/companyScope";
+import { logClientError } from "@/lib/supabaseErrors";
 import type { Company } from "@/types/database.types";
 
 export interface CreateCompanyParams {
@@ -70,6 +72,7 @@ export const companyService = {
   },
 
   async getById(id: string) {
+    requireUuid(id);
     const { data, error } = await supabase
       .from("companies")
       .select("*")
@@ -129,18 +132,15 @@ export const companyService = {
       .single();
 
     if (error) {
-      if (import.meta.env.DEV) {
-        console.error("[company.service] INSERT ERROR:", error);
-      }
-      throw new Error(
-        error.message || "Falha ao inserir empresa. Verifique permissões (RLS) e dados."
-      );
+      logClientError("company.service.create", error);
+      throw new Error("Não foi possível criar a empresa.");
     }
 
     return { data: data as Company, error: null };
   },
 
   async update(id: string, params: UpdateCompanyParams) {
+    requireUuid(id);
     const updates: Record<string, unknown> = { ...params, updated_at: new Date().toISOString() };
     if (params.slug) updates.slug = params.slug.toLowerCase().replace(/\s+/g, "-");
     const { data, error } = await supabase
@@ -153,6 +153,7 @@ export const companyService = {
   },
 
   async delete(id: string) {
+    requireUuid(id);
     const { error } = await supabase.from("companies").delete().eq("id", id);
     return { error };
   },

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId, requireUuid } from "@/lib/companyScope";
 import type { Service } from "@/types/database.types";
 
 export interface CreateServiceParams {
@@ -18,6 +19,7 @@ export interface UpdateServiceParams {
 
 export const serviceService = {
   async listByCompany(companyId: string) {
+    requireCompanyId(companyId);
     const { data, error } = await supabase
       .from("services")
       .select("*")
@@ -27,6 +29,7 @@ export const serviceService = {
   },
 
   async getById(id: string) {
+    requireUuid(id);
     const { data, error } = await supabase
       .from("services")
       .select("*")
@@ -36,6 +39,7 @@ export const serviceService = {
   },
 
   async create(params: CreateServiceParams) {
+    requireCompanyId(params.company_id);
     const { data, error } = await supabase
       .from("services")
       .insert({
@@ -51,6 +55,7 @@ export const serviceService = {
   },
 
   async update(id: string, params: UpdateServiceParams) {
+    requireUuid(id);
     const { data, error } = await supabase
       .from("services")
       .update({ ...params, updated_at: new Date().toISOString() })
@@ -61,6 +66,7 @@ export const serviceService = {
   },
 
   async delete(id: string) {
+    requireUuid(id);
     const { error } = await supabase.from("services").delete().eq("id", id);
     return { error };
   },

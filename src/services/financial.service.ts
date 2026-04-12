@@ -1,4 +1,9 @@
 import { supabase } from "@/lib/supabase";
+import {
+  assertBoundedPositiveAmount,
+  requireCompanyId,
+  requireUuid,
+} from "@/lib/companyScope";
 import type { FinancialRecord } from "@/types/database.types";
 
 export interface CreateFromAppointmentParams {
@@ -47,6 +52,9 @@ export interface CreateFromProductSaleParams {
 
 export const financialService = {
   async createFromAppointment(params: CreateFromAppointmentParams) {
+    requireCompanyId(params.company_id);
+    requireUuid(params.appointment_id);
+    assertBoundedPositiveAmount(Math.abs(Number(params.amount)));
     const { data, error } = await supabase
       .from("financial_records")
       .insert({
@@ -69,10 +77,12 @@ export const financialService = {
 
   /** Despesa: compra de produto (entrada de estoque com preço de custo). */
   async createFromProductPurchase(params: CreateFromProductPurchaseParams) {
+    requireCompanyId(params.company_id);
     const amount = Math.abs(params.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
       return { data: null, error: new Error("Valor inválido para compra de produto") };
     }
+    assertBoundedPositiveAmount(amount);
     const { data, error } = await supabase
       .from("financial_records")
       .insert({
@@ -92,10 +102,12 @@ export const financialService = {
 
   /** Receita: venda de produto. */
   async createFromProductSale(params: CreateFromProductSaleParams) {
+    requireCompanyId(params.company_id);
     const amount = Math.abs(params.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
       return { data: null, error: new Error("Valor inválido para venda de produto") };
     }
+    assertBoundedPositiveAmount(amount);
     const { data, error } = await supabase
       .from("financial_records")
       .insert({
@@ -136,6 +148,7 @@ export const financialService = {
     companyId: string,
     opts?: { startDate?: string; endDate?: string; validOnly?: boolean }
   ) {
+    requireCompanyId(companyId);
     let query = supabase
       .from("financial_records")
       .select("*")
@@ -157,7 +170,13 @@ export const financialService = {
   },
 
   async createManual(params: CreateManualParams) {
+    requireCompanyId(params.company_id);
     const amount = Math.abs(params.amount);
+    assertBoundedPositiveAmount(amount);
+    const desc = params.description?.trim() ?? "";
+    if (!desc || desc.length > 2000) {
+      return { data: null, error: new Error("Descrição obrigatória (máx. 2000 caracteres).") };
+    }
     const { data, error } = await supabase
       .from("financial_records")
       .insert({
@@ -165,7 +184,7 @@ export const financialService = {
         appointment_id: null,
         type: params.type,
         source: "manual",
-        description: params.description,
+        description: desc,
         amount,
         created_at: params.created_at ?? new Date().toISOString(),
         created_by: params.created_by ?? null,
@@ -180,6 +199,7 @@ export const financialService = {
     companyId: string,
     opts: { startDate: string; endDate: string }
   ): Promise<{ data: FinancialStats; error: unknown }> {
+    requireCompanyId(companyId);
     const periodStart = `${opts.startDate}T00:00:00`;
     const periodEnd = `${opts.endDate}T23:59:59`;
 

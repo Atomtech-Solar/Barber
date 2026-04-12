@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId } from "@/lib/companyScope";
 import type { Appointment, Service, Professional } from "@/types/database.types";
 
 export interface ReportsFilters {
@@ -74,6 +75,7 @@ async function getAppointmentsWithDetails(
   companyId: string,
   filters: ReportsFilters
 ) {
+  requireCompanyId(companyId);
   let query = supabase
     .from("appointments")
     .select("*, appointment_services(service_id)")
@@ -119,6 +121,7 @@ async function getAppointmentsWithDetails(
 
 export const reportsService = {
   async getMetrics(companyId: string, filters: ReportsFilters) {
+    requireCompanyId(companyId);
     const periodStart = `${filters.startDate}T00:00:00`;
     const periodEnd = `${filters.endDate}T23:59:59`;
 
@@ -215,6 +218,7 @@ export const reportsService = {
   },
 
   async getFaturamentoPorPeriodo(companyId: string, filters: ReportsFilters) {
+    requireCompanyId(companyId);
     let aptIds: string[] | null = null;
     if (filters.professionalId) {
       const { data: apts } = await supabase
@@ -255,6 +259,7 @@ export const reportsService = {
   },
 
   async getServicosMaisVendidos(companyId: string, filters: ReportsFilters) {
+    requireCompanyId(companyId);
     let aptQuery = supabase
       .from("appointments")
       .select("id, appointment_services(service_id)")
@@ -315,6 +320,7 @@ export const reportsService = {
   },
 
   async getRankingProfissionais(companyId: string, filters: ReportsFilters) {
+    requireCompanyId(companyId);
     let aptQuery = supabase
       .from("appointments")
       .select("id, professional_id")
@@ -381,6 +387,7 @@ export const reportsService = {
   },
 
   async getHorariosMaisMovimentados(companyId: string, filters: ReportsFilters) {
+    requireCompanyId(companyId);
     let query = supabase
       .from("appointments")
       .select("start_time")
@@ -417,6 +424,7 @@ export const reportsService = {
   },
 
   async getProdutividadeProfissionais(companyId: string, filters: ReportsFilters) {
+    requireCompanyId(companyId);
     const { data: apts } = await supabase
       .from("appointments")
       .select("id, professional_id")
@@ -467,6 +475,7 @@ export const reportsService = {
   },
 
   async getStatusDistribuicao(companyId: string, filters: ReportsFilters) {
+    requireCompanyId(companyId);
     let query = supabase
       .from("appointments")
       .select("status")
@@ -495,6 +504,7 @@ export const reportsService = {
     filters: ReportsFilters,
     opts?: { limit?: number; offset?: number }
   ) {
+    requireCompanyId(companyId);
     const { data, services, serviceMap, profMap, error } = await getAppointmentsWithDetails(
       companyId,
       filters

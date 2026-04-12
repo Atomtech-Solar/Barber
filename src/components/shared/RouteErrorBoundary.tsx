@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { getSafeClientMessage, logClientError } from "@/lib/supabaseErrors";
 
 interface Props {
   children: ReactNode;
@@ -22,7 +23,10 @@ export class RouteErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("RouteErrorBoundary:", error, errorInfo);
+    logClientError("RouteErrorBoundary", error);
+    if (import.meta.env.DEV) {
+      console.error("RouteErrorBoundary detail:", error, errorInfo);
+    }
   }
 
   render() {
@@ -31,7 +35,9 @@ export class RouteErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 p-6 text-center">
           <h2 className="text-lg font-semibold text-destructive">Erro ao carregar a página</h2>
-          <p className="text-sm text-muted-foreground max-w-md">{this.state.error.message}</p>
+          <p className="text-sm text-muted-foreground max-w-md">
+            {getSafeClientMessage(this.state.error)}
+          </p>
           <Button
             variant="outline"
             onClick={() => this.setState({ hasError: false, error: null })}

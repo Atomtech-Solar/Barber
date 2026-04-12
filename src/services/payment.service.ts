@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId, requireUuid } from "@/lib/companyScope";
 import type {
   ProfessionalPaymentSettings,
   ProfessionalServiceCommission,
@@ -74,6 +75,7 @@ function calcPaymentValues(
 
 export const paymentService = {
   async listProfessionalsWithSettings(companyId: string) {
+    requireCompanyId(companyId);
     const [{ data: professionals, error: profError }, { data: settings }] = await Promise.all([
       supabase
         .from("professionals")
@@ -113,6 +115,7 @@ export const paymentService = {
   },
 
   async listProfessionalsWithCurrentMonthPreview(companyId: string, monthStr?: string) {
+    requireCompanyId(companyId);
     const month = monthStr ?? format(new Date(), "yyyy-MM");
     const { data: list, error } = await this.listProfessionalsWithSettings(companyId);
     if (error || !list) return { data: [] as (ProfessionalWithPayment & MonthPreview)[], error };
@@ -136,6 +139,8 @@ export const paymentService = {
       ativo?: boolean;
     }
   ) {
+    requireCompanyId(companyId);
+    requireUuid(professionalId);
     const { data, error } = await supabase
       .from("professional_payment_settings")
       .upsert(
@@ -153,6 +158,8 @@ export const paymentService = {
   },
 
   async listServiceCommissions(companyId: string, professionalId: string) {
+    requireCompanyId(companyId);
+    requireUuid(professionalId);
     const { data: rows, error } = await supabase
       .from("professional_service_commissions")
       .select("id, service_id, percentual, created_at")
@@ -185,6 +192,12 @@ export const paymentService = {
     serviceId: string,
     percentual: number
   ) {
+    requireCompanyId(companyId);
+    requireUuid(professionalId);
+    requireUuid(serviceId);
+    if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) {
+      throw new Error("Percentual inválido.");
+    }
     const { data, error } = await supabase
       .from("professional_service_commissions")
       .upsert(
@@ -202,6 +215,9 @@ export const paymentService = {
   },
 
   async removeServiceCommission(companyId: string, professionalId: string, serviceId: string) {
+    requireCompanyId(companyId);
+    requireUuid(professionalId);
+    requireUuid(serviceId);
     const { error } = await supabase
       .from("professional_service_commissions")
       .delete()
@@ -218,6 +234,8 @@ export const paymentService = {
    * Apenas dados reais; sem mocks.
    */
   async getMonthlyRevenue(companyId: string, professionalId: string, monthStr: string): Promise<number> {
+    requireCompanyId(companyId);
+    requireUuid(professionalId);
     const mes = parseISO(monthStr + "-01");
     const periodStart = `${format(startOfMonth(mes), "yyyy-MM-dd")}T00:00:00`;
     const periodEnd = `${format(endOfMonth(mes), "yyyy-MM-dd")}T23:59:59`;
@@ -273,6 +291,8 @@ export const paymentService = {
     professionalId: string,
     monthStr: string
   ): Promise<number> {
+    requireCompanyId(companyId);
+    requireUuid(professionalId);
     const mes = parseISO(monthStr + "-01");
     const start = format(startOfMonth(mes), "yyyy-MM-dd");
     const end = format(endOfMonth(mes), "yyyy-MM-dd");
@@ -295,6 +315,8 @@ export const paymentService = {
     professionalId: string,
     monthStr: string
   ): Promise<MonthPreview> {
+    requireCompanyId(companyId);
+    requireUuid(professionalId);
     const mes = parseISO(monthStr + "-01");
     const start = toIsoMonth(startOfMonth(mes));
 
@@ -335,6 +357,8 @@ export const paymentService = {
   },
 
   async closeMonth(companyId: string, professionalId: string, monthStr: string) {
+    requireCompanyId(companyId);
+    requireUuid(professionalId);
     const preview = await this.getMonthlyPreview(companyId, professionalId, monthStr);
     const mes = monthStr + "-01";
 
@@ -362,6 +386,8 @@ export const paymentService = {
   },
 
   async getMonthlySummary(companyId: string, professionalId: string, monthStr: string) {
+    requireCompanyId(companyId);
+    requireUuid(professionalId);
     const mes = monthStr + "-01";
     const { data, error } = await supabase
       .from("monthly_professional_summary")

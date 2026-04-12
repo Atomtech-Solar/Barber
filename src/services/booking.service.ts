@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { requireCompanyId, requireUuid } from "@/lib/companyScope";
 import { addMinutes, parse, format, setHours, setMinutes } from "date-fns";
 import type { Appointment, Service } from "@/types/database.types";
 import { financialService } from "@/services/financial.service";
@@ -91,6 +92,7 @@ function ceilToSlotBoundary(minutes: number, step: number) {
 
 export const bookingService = {
   async listByCompany(companyId: string, startDate?: string, endDate?: string) {
+    requireCompanyId(companyId);
     let query = supabase
       .from("appointments")
       .select("*")
@@ -106,6 +108,7 @@ export const bookingService = {
   },
 
   async listByClient(clientId: string) {
+    requireUuid(clientId);
     const { data, error } = await supabase
       .from("appointments")
       .select("*")
@@ -117,6 +120,7 @@ export const bookingService = {
 
   /** Lista agendamentos do cliente: não finalizados (em cima) e finalizados no histórico (embaixo) */
   async listMyAppointments(userId: string) {
+    requireUuid(userId);
     const { data, error } = await supabase
       .from("appointments")
       .select("*")
@@ -158,6 +162,7 @@ export const bookingService = {
   },
 
   async listByProfessionalAndDate(professionalId: string, date: string) {
+    requireUuid(professionalId);
     const { data, error } = await supabase
       .from("appointments")
       .select("*")
@@ -179,6 +184,8 @@ export const bookingService = {
     serviceIds: string[],
     serviceDurations: Record<string, number>
   ): Promise<{ data: AvailableSlot[]; error: unknown }> {
+    requireCompanyId(companyId);
+    requireUuid(professionalId);
     const totalDuration = serviceIds.reduce((acc, sid) => acc + (serviceDurations[sid] ?? 0), 0);
     if (totalDuration <= 0) return { data: [], error: null };
 
@@ -290,7 +297,10 @@ export const bookingService = {
    * Caso contrário, usa RPC create_public_appointment (walk-in).
    */
   async createClientBooking(params: CreateClientBookingParams, clientId?: string | null) {
+    requireCompanyId(params.company_id);
+    requireUuid(params.professional_id);
     if (clientId) {
+      requireUuid(clientId);
       return this.create({
         company_id: params.company_id,
         client_id: clientId,
@@ -354,6 +364,12 @@ export const bookingService = {
   },
 
   async create(params: CreateAppointmentParams) {
+    requireCompanyId(params.company_id);
+    requireUuid(params.client_id);
+    requireUuid(params.professional_id);
+    for (const sid of params.service_ids) {
+      requireUuid(sid);
+    }
     const { data: existing } = await this.listByProfessionalAndDate(
       params.professional_id,
       params.date
@@ -415,10 +431,12 @@ export const bookingService = {
   },
 
   async cancel(id: string) {
+    requireUuid(id);
     return this.updateStatus(id, "cancelled");
   },
 
   async updateStatus(id: string, status: Appointment["status"]) {
+    requireUuid(id);
     const { data, error } = await supabase
       .from("appointments")
       .update({ status, updated_at: new Date().toISOString() })
@@ -429,6 +447,7 @@ export const bookingService = {
   },
 
   async getById(id: string) {
+    requireUuid(id);
     const { data: apt, error: aptError } = await supabase
       .from("appointments")
       .select("*")
@@ -468,6 +487,12 @@ export const bookingService = {
   },
 
   async createAdmin(params: CreateAdminAppointmentParams) {
+    requireCompanyId(params.company_id);
+    requireUuid(params.professional_id);
+    requireUuid(params.created_by);
+    for (const sid of params.service_ids ?? []) {
+      requireUuid(sid);
+    }
     const { data: existing } = await this.listByProfessionalAndDate(
       params.professional_id,
       params.date
@@ -568,6 +593,13 @@ export const bookingService = {
   },
 
   async update(id: string, params: UpdateAppointmentParams) {
+    requireUuid(id);
+    if (params.professional_id !== undefined) requireUuid(params.professional_id);
+    if (params.service_ids !== undefined) {
+      for (const sid of params.service_ids) {
+        requireUuid(sid);
+      }
+    }
     const { data: oldApt, error: fetchErr } = await supabase
       .from("appointments")
       .select("status, professional_id, date, start_time, duration_minutes")
@@ -687,6 +719,7 @@ export const bookingService = {
   },
 
   async delete(id: string) {
+    requireUuid(id);
     await financialService.invalidateByAppointmentId(id);
     await supabase.from("appointment_services").delete().eq("appointment_id", id);
     const { error } = await supabase.from("appointments").delete().eq("id", id);
@@ -694,6 +727,7 @@ export const bookingService = {
   },
 
   async getTodayStats(companyId: string) {
+    requireCompanyId(companyId);
     const today = new Date().toISOString().slice(0, 10);
     const { data: appointments, error } = await supabase
       .from("appointments")
