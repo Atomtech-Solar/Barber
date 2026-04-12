@@ -277,7 +277,8 @@ const AppPerformance = () => {
   const { data: enrichedGoals = [], isLoading: goalsLoading } = useQuery({
     queryKey: ["performance-goals-block", companyId, range.startDate, range.endDate],
     queryFn: async () => {
-      const raw = performanceService.listStoredGoals(companyId);
+      const { data: raw, error } = await performanceService.listGoals(companyId);
+      if (error) throw error;
       return performanceService.enrichStoredGoals(companyId, range, raw);
     },
     enabled: !!companyId,
@@ -339,18 +340,6 @@ const AppPerformance = () => {
   const saveStoredMutation = useMutation({
     mutationFn: async () => {
       const target = Number(String(goalForm.target_value).replace(",", "."));
-      if (!goalForm.name.trim()) throw new Error("Informe o nome da meta.");
-      if (!Number.isFinite(target) || target <= 0) throw new Error("Informe um valor alvo válido.");
-
-      if (goalForm.period_type === "custom") {
-        if (!goalForm.custom_start || !goalForm.custom_end) {
-          throw new Error("Datas obrigatórias para meta personalizada.");
-        }
-        if (goalForm.custom_start > goalForm.custom_end) {
-          throw new Error("Data inicial deve ser anterior ou igual à final.");
-        }
-      }
-
       const payload = {
         name: goalForm.name.trim(),
         period_type: goalForm.period_type,
@@ -361,9 +350,18 @@ const AppPerformance = () => {
       };
 
       if (editingGoal) {
-        performanceService.updateStoredGoal(companyId, editingGoal.id, payload);
+        const { data, error } = await performanceService.updateGoal(
+          companyId,
+          editingGoal.id,
+          payload,
+          { expectedUpdatedAt: editingGoal.updated_at ?? null }
+        );
+        if (error) throw error;
+        if (!data) throw new Error("Não foi possível salvar a meta.");
       } else {
-        performanceService.createStoredGoal(companyId, payload);
+        const { data, error } = await performanceService.createGoal(companyId, payload);
+        if (error) throw error;
+        if (!data) throw new Error("Não foi possível criar a meta.");
       }
     },
     onSuccess: () => {
@@ -378,7 +376,8 @@ const AppPerformance = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const ok = performanceService.deleteStoredGoal(companyId, id);
+      const { ok, error } = await performanceService.deleteGoal(companyId, id);
+      if (error) throw error;
       if (!ok) throw new Error("Meta não encontrada.");
     },
     onSuccess: () => {

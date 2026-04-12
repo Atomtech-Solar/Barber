@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { requireCompanyId, requireUuid } from "@/lib/companyScope";
+import { BusinessRuleError } from "@/lib/businessRules";
 import type { Professional, WorkingHour } from "@/types/database.types";
 
 export interface CreateProfessionalParams {
@@ -217,13 +218,28 @@ export const professionalService = {
     return { data: professional, error: null };
   },
 
-  async update(id: string, params: UpdateProfessionalParams, serviceIds?: string[], workingHours?: WorkingHourInput[]) {
+  async update(
+    companyId: string,
+    id: string,
+    params: UpdateProfessionalParams,
+    serviceIds?: string[],
+    workingHours?: WorkingHourInput[]
+  ) {
+    requireCompanyId(companyId);
     requireUuid(id);
     serviceIds?.forEach((sid) => requireUuid(sid));
+    const existing = await this.getById(id);
+    if (existing.error || !existing.data) {
+      return { data: null, error: existing.error ?? new BusinessRuleError("Profissional não encontrado.", "PRO_NOT_FOUND") };
+    }
+    if (existing.data.company_id !== companyId) {
+      return { data: null, error: new BusinessRuleError("Profissional não pertence a esta empresa.", "PRO_TENANT") };
+    }
     const { data, error } = await supabase
       .from("professionals")
       .update({ ...params, updated_at: new Date().toISOString() })
       .eq("id", id)
+      .eq("company_id", companyId)
       .select()
       .single();
 
@@ -255,9 +271,18 @@ export const professionalService = {
     return { data: data as Professional, error: null };
   },
 
-  async delete(id: string) {
+  async delete(companyId: string, id: string) {
+    requireCompanyId(companyId);
     requireUuid(id);
-    const { error } = await supabase.from("professionals").delete().eq("id", id);
-    return { error };
+    const { data, error } = await supabase.rpc("safe_delete_professional", {
+      p_professional_id: id,
+      p_company_id: companyId,
+    });
+    if (error) return { error };
+    const res = data as { success?: boolean; error?: string } | null;
+    if (!res?.success) {
+      return { error: new BusinessRuleError(res?.error ?? "Não foi possível excluir o profissional.", "PRO_DELETE") };
+    }
+    return { error: null };
   },
 };

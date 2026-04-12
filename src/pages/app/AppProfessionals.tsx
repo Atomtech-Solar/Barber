@@ -4,6 +4,8 @@ import PageContainer from "@/components/shared/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, Mail, Phone } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
+import { useToast } from "@/hooks/use-toast";
+import { getSafeClientMessage, logClientError } from "@/lib/supabaseErrors";
 import { professionalService } from "@/services/professional.service";
 import { serviceService } from "@/services/service.service";
 import type { Professional } from "@/types/database.types";
@@ -42,6 +44,7 @@ const DAYS = [
 
 const AppProfessionals = () => {
   const { currentCompany } = useTenant();
+  const { toast } = useToast();
   const companyId = currentCompany?.id ?? "";
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Professional | null>(null);
@@ -97,11 +100,20 @@ const AppProfessionals = () => {
       setCreating(false);
       resetForm();
     },
+    onError: (err) => {
+      logClientError("AppProfessionals.create", err);
+      toast({
+        variant: "destructive",
+        title: "Não foi possível criar o profissional",
+        description: getSafeClientMessage(err),
+      });
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: () =>
       professionalService.update(
+        companyId,
         editing!.id,
         {
           name: form.name,
@@ -117,21 +129,45 @@ const AppProfessionals = () => {
       queryClient.invalidateQueries({ queryKey: ["professionals", companyId] });
       setEditing(null);
     },
+    onError: (err) => {
+      logClientError("AppProfessionals.update", err);
+      toast({
+        variant: "destructive",
+        title: "Não foi possível salvar o profissional",
+        description: getSafeClientMessage(err),
+      });
+    },
   });
 
   const toggleActiveMutation = useMutation({
     mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
-      professionalService.update(id, { is_active }),
+      professionalService.update(companyId, id, { is_active }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["professionals", companyId] });
+    },
+    onError: (err) => {
+      logClientError("AppProfessionals.toggleActive", err);
+      toast({
+        variant: "destructive",
+        title: "Não foi possível alterar o status",
+        description: getSafeClientMessage(err),
+      });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => professionalService.delete(id),
+    mutationFn: (id: string) => professionalService.delete(companyId, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["professionals", companyId] });
       setDeleting(null);
+    },
+    onError: (err) => {
+      logClientError("AppProfessionals.delete", err);
+      toast({
+        variant: "destructive",
+        title: "Não foi possível excluir o profissional",
+        description: getSafeClientMessage(err),
+      });
     },
   });
 

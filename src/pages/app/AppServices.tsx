@@ -4,6 +4,8 @@ import PageContainer from "@/components/shared/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Clock, Plus, Pencil, Trash2 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
+import { useToast } from "@/hooks/use-toast";
+import { getSafeClientMessage, logClientError } from "@/lib/supabaseErrors";
 import { serviceService } from "@/services/service.service";
 import type { Service } from "@/types/database.types";
 import {
@@ -28,6 +30,7 @@ import {
 
 const AppServices = () => {
   const { currentCompany } = useTenant();
+  const { toast } = useToast();
   const companyId = currentCompany?.id ?? "";
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Service | null>(null);
@@ -55,11 +58,19 @@ const AppServices = () => {
       setCreating(false);
       setForm({ name: "", duration_minutes: 30, price: 0, category: "" });
     },
+    onError: (err) => {
+      logClientError("AppServices.create", err);
+      toast({
+        variant: "destructive",
+        title: "Não foi possível criar o serviço",
+        description: getSafeClientMessage(err),
+      });
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: () =>
-      serviceService.update(editing!.id, {
+      serviceService.update(companyId, editing!.id, {
         name: form.name,
         duration_minutes: form.duration_minutes,
         price: form.price,
@@ -69,13 +80,29 @@ const AppServices = () => {
       queryClient.invalidateQueries({ queryKey: ["services", companyId] });
       setEditing(null);
     },
+    onError: (err) => {
+      logClientError("AppServices.update", err);
+      toast({
+        variant: "destructive",
+        title: "Não foi possível salvar o serviço",
+        description: getSafeClientMessage(err),
+      });
+    },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => serviceService.delete(id),
+    mutationFn: (id: string) => serviceService.delete(companyId, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services", companyId] });
       setDeleting(null);
+    },
+    onError: (err) => {
+      logClientError("AppServices.delete", err);
+      toast({
+        variant: "destructive",
+        title: "Não foi possível excluir o serviço",
+        description: getSafeClientMessage(err),
+      });
     },
   });
 

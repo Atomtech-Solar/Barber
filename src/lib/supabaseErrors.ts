@@ -1,4 +1,5 @@
 import type { PostgrestError } from "@supabase/supabase-js";
+import { isBusinessRuleError } from "@/lib/businessRules";
 
 function isPostgrestError(e: unknown): e is PostgrestError {
   return typeof e === "object" && e !== null && "code" in e && typeof (e as PostgrestError).code === "string";
@@ -11,13 +12,26 @@ function isPostgrestError(e: unknown): e is PostgrestError {
 export function getSafeClientMessage(error: unknown): string {
   if (error == null) return "Não foi possível concluir a operação.";
 
+  if (isBusinessRuleError(error)) {
+    return error.message;
+  }
+
   if (isPostgrestError(error)) {
     const code = error.code;
     if (code === "42501" || code === "PGRST301" || code === "PGRST302") {
       return "Você não tem permissão para esta ação.";
     }
-    if (code === "23505") return "Este registro já existe.";
+    if (code === "23505") return "Este registro já existe ou viola uma regra de unicidade.";
     if (code === "23503") return "Referência inválida. Verifique os dados e tente novamente.";
+    if (code === "23514") {
+      const hint = error.hint?.trim();
+      if (hint) return hint;
+      const msg = (error.message ?? "").toLowerCase();
+      if (msg.includes("perf_goal_overlap")) {
+        return "Já existe outra meta personalizada neste período para o mesmo indicador.";
+      }
+      return "Os dados violam uma regra do sistema. Verifique períodos e valores.";
+    }
     if (code === "PGRST116") return "Registro não encontrado.";
     if (code === "22P02") return "Dados em formato inválido.";
   }

@@ -4,6 +4,7 @@ import {
   requireCompanyId,
   requireUuid,
 } from "@/lib/companyScope";
+import { BusinessRuleError } from "@/lib/businessRules";
 import type { FinancialRecord } from "@/types/database.types";
 
 export interface CreateFromAppointmentParams {
@@ -171,11 +172,17 @@ export const financialService = {
 
   async createManual(params: CreateManualParams) {
     requireCompanyId(params.company_id);
-    const amount = Math.abs(params.amount);
+    if (params.type !== "income" && params.type !== "expense") {
+      return { data: null, error: new BusinessRuleError("Tipo de lançamento inválido.", "FIN_TYPE") };
+    }
+    const amount = Math.abs(Number(params.amount));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { data: null, error: new BusinessRuleError("O valor deve ser maior que zero.", "FIN_AMOUNT") };
+    }
     assertBoundedPositiveAmount(amount);
     const desc = params.description?.trim() ?? "";
     if (!desc || desc.length > 2000) {
-      return { data: null, error: new Error("Descrição obrigatória (máx. 2000 caracteres).") };
+      return { data: null, error: new BusinessRuleError("Descrição obrigatória (máx. 2000 caracteres).", "FIN_DESC") };
     }
     const { data, error } = await supabase
       .from("financial_records")

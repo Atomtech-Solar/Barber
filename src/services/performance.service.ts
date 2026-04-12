@@ -6,24 +6,38 @@ import {
   type DashboardRange,
   type DashboardSummary,
 } from "@/services/dashboard.service";
-import { requireCompanyId } from "@/lib/companyScope";
+import { requireCompanyId, requireUuid } from "@/lib/companyScope";
+import { supabase } from "@/lib/supabase";
+import {
+  assertCustomGoalsNoOverlap,
+  assertRollingGoalUnique,
+  BusinessRuleError,
+  validatePerformanceGoalPayload,
+  type GoalPeer,
+  type PerformanceGoalPayload,
+} from "@/lib/businessRules";
+import type {
+  PerformanceGoalMetric,
+  PerformanceGoalPeriodType,
+  PerformanceGoalStatus,
+  PerformancePeriodPreset,
+} from "@/types/performanceGoals";
+
+export type {
+  PerformanceGoalMetric,
+  PerformanceGoalPeriodType,
+  PerformanceGoalStatus,
+  PerformancePeriodPreset,
+} from "@/types/performanceGoals";
 
 function normalizeGrowthPercent(current: number, previous: number): number {
   if (previous <= 0) return current > 0 ? 100 : 0;
   return ((current - previous) / previous) * 100;
 }
 
-// Atenção: localStorage é vulnerável a XSS. Aqui só persistimos metas de UI (números/labels), nunca tokens ou senhas.
+/** Metas extras: fonte de verdade = tabela `company_performance_goals` (migration 057). */
 
 const LS_KEY = "brynex_performance_extra_goals_v1";
-
-export type PerformancePeriodPreset = "today" | "7d" | "30d" | "custom";
-
-export type PerformanceGoalPeriodType = "daily" | "weekly" | "monthly" | "custom";
-
-export type PerformanceGoalMetric = "revenue" | "appointments" | "average_ticket";
-
-export type PerformanceGoalStatus = "in_progress" | "achieved" | "behind";
 
 export type StoredPerformanceGoal = {
   id: string;
@@ -35,6 +49,8 @@ export type StoredPerformanceGoal = {
   custom_start?: string | null;
   custom_end?: string | null;
   created_at: string;
+  /** Para concorrência otimista (atualização segura). */
+  updated_at?: string;
 };
 
 export type PerformanceGoalWithProgress = StoredPerformanceGoal & {
@@ -79,8 +95,67 @@ function writeGoalStore(store: Record<string, StoredPerformanceGoal[]>) {
   window.localStorage.setItem(LS_KEY, JSON.stringify(store));
 }
 
-function newId() {
-  return `pg_${crypto.randomUUID?.() ?? String(Date.now())}`;
+function rowToStored(row: Record<string, unknown>): StoredPerformanceGoal {
+  return {
+    id: String(row.id),
+    company_id: String(row.company_id),
+    name: String(row.name),
+    period_type: row.period_type as PerformanceGoalPeriodType,
+    metric: row.metric as PerformanceGoalMetric,
+    target_value: Number(row.target_value),
+    custom_start: (row.custom_start as string | null) ?? null,
+    custom_end: (row.custom_end as string | null) ?? null,
+    created_at: String(row.created_at),
+    updated_at: row.updated_at != null ? String(row.updated_at) : undefined,
+  };
+}
+
+function peersFromList(list: StoredPerformanceGoal[]): GoalPeer[] {
+  return list.map((g) => ({
+    id: g.id,
+    period_type: g.period_type,
+    metric: g.metric,
+    custom_start: g.custom_start,
+    custom_end: g.custom_end,
+  }));
+}
+
+async function migrateLocalGoalsToSupabase(companyId: string): Promise<void> {
+  const store = readGoalStore();
+  const legacy = store[companyId];
+  if (!legacy?.length) return;
+
+  let migrated = 0;
+  for (const g of legacy) {
+    try {
+      const payload: PerformanceGoalPayload = {
+        name: g.name,
+        period_type: g.period_type,
+        metric: g.metric,
+        target_value: g.target_value,
+        custom_start: g.custom_start,
+        custom_end: g.custom_end,
+      };
+      validatePerformanceGoalPayload(payload);
+      const { error } = await supabase.from("company_performance_goals").insert({
+        company_id: companyId,
+        name: payload.name.trim(),
+        period_type: payload.period_type,
+        metric: payload.metric,
+        target_value: payload.target_value,
+        custom_start: payload.period_type === "custom" ? payload.custom_start : null,
+        custom_end: payload.period_type === "custom" ? payload.custom_end : null,
+      });
+      if (!error) migrated += 1;
+    } catch {
+      /* ignora metas legadas inválidas */
+    }
+  }
+
+  if (migrated > 0) {
+    delete store[companyId];
+    writeGoalStore(store);
+  }
 }
 
 function goalStatusFromProgress(progressPercent: number): PerformanceGoalStatus {
@@ -204,53 +279,173 @@ export const performanceService = {
     };
   },
 
-  listStoredGoals(companyId: string): StoredPerformanceGoal[] {
+  async listGoals(companyId: string): Promise<{ data: StoredPerformanceGoal[]; error: unknown }> {
     requireCompanyId(companyId);
-    const store = readGoalStore();
-    return (store[companyId] ?? []).slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    const { data, error } = await supabase
+      .from("company_performance_goals")
+      .select("*")
+      .eq("company_id", companyId)
+      .order("name");
+
+    if (error) return { data: [], error };
+
+    let rows = (data ?? []).map((r) => rowToStored(r as Record<string, unknown>));
+
+    if (rows.length === 0) {
+      await migrateLocalGoalsToSupabase(companyId);
+      const again = await supabase
+        .from("company_performance_goals")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("name");
+      if (again.error) return { data: [], error: again.error };
+      rows = (again.data ?? []).map((r) => rowToStored(r as Record<string, unknown>));
+    }
+
+    return { data: rows.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")), error: null };
   },
 
-  createStoredGoal(
+  async createGoal(
     companyId: string,
-    input: Omit<StoredPerformanceGoal, "id" | "company_id" | "created_at">
-  ): StoredPerformanceGoal {
+    input: Omit<StoredPerformanceGoal, "id" | "company_id" | "created_at" | "updated_at">
+  ): Promise<{ data: StoredPerformanceGoal | null; error: unknown }> {
     requireCompanyId(companyId);
-    const store = readGoalStore();
-    const list = store[companyId] ?? [];
-    const row: StoredPerformanceGoal = {
-      ...input,
-      id: newId(),
-      company_id: companyId,
-      created_at: new Date().toISOString(),
+    const payload: PerformanceGoalPayload = {
+      name: input.name,
+      period_type: input.period_type,
+      metric: input.metric,
+      target_value: input.target_value,
+      custom_start: input.custom_start,
+      custom_end: input.custom_end,
     };
-    store[companyId] = [...list, row];
-    writeGoalStore(store);
-    return row;
+    validatePerformanceGoalPayload(payload);
+
+    const { data: existing, error: listErr } = await this.listGoals(companyId);
+    if (listErr) return { data: null, error: listErr };
+
+    const peers = peersFromList(existing);
+    assertRollingGoalUnique(peers, {
+      id: "__new__",
+      period_type: payload.period_type,
+      metric: payload.metric,
+    });
+    assertCustomGoalsNoOverlap(peers, {
+      id: "__new__",
+      period_type: payload.period_type,
+      metric: payload.metric,
+      custom_start: payload.custom_start,
+      custom_end: payload.custom_end,
+    });
+
+    const { data, error } = await supabase
+      .from("company_performance_goals")
+      .insert({
+        company_id: companyId,
+        name: payload.name.trim(),
+        period_type: payload.period_type,
+        metric: payload.metric,
+        target_value: payload.target_value,
+        custom_start: payload.period_type === "custom" ? payload.custom_start : null,
+        custom_end: payload.period_type === "custom" ? payload.custom_end : null,
+      })
+      .select("*")
+      .single();
+
+    if (error) return { data: null, error };
+    return { data: rowToStored(data as Record<string, unknown>), error: null };
   },
 
-  updateStoredGoal(companyId: string, id: string, patch: Partial<StoredPerformanceGoal>): StoredPerformanceGoal | null {
+  async updateGoal(
+    companyId: string,
+    id: string,
+    patch: Partial<StoredPerformanceGoal>,
+    options?: { expectedUpdatedAt?: string | null }
+  ): Promise<{ data: StoredPerformanceGoal | null; error: unknown }> {
     requireCompanyId(companyId);
-    const store = readGoalStore();
-    const list = store[companyId] ?? [];
-    const idx = list.findIndex((g) => g.id === id);
-    if (idx === -1) return null;
-    const next = { ...list[idx], ...patch, id: list[idx].id, company_id: companyId };
-    const copy = [...list];
-    copy[idx] = next;
-    store[companyId] = copy;
-    writeGoalStore(store);
-    return next;
+    requireUuid(id);
+
+    const { data: list, error: listErr } = await this.listGoals(companyId);
+    if (listErr) return { data: null, error: listErr };
+    const current = list.find((g) => g.id === id);
+    if (!current) {
+      return { data: null, error: new BusinessRuleError("Meta não encontrada.", "GOAL_NOT_FOUND") };
+    }
+    if (current.company_id !== companyId) {
+      return { data: null, error: new BusinessRuleError("Meta não pertence a esta empresa.", "GOAL_TENANT") };
+    }
+    if (options?.expectedUpdatedAt && current.updated_at !== options.expectedUpdatedAt) {
+      return {
+        data: null,
+        error: new BusinessRuleError(
+          "Esta meta foi alterada em outro lugar. Recarregue a página e tente novamente.",
+          "GOAL_CONFLICT"
+        ),
+      };
+    }
+
+    const merged: StoredPerformanceGoal = { ...current, ...patch, id, company_id: companyId };
+    const payload: PerformanceGoalPayload = {
+      name: merged.name,
+      period_type: merged.period_type,
+      metric: merged.metric,
+      target_value: Number(merged.target_value),
+      custom_start: merged.custom_start,
+      custom_end: merged.custom_end,
+    };
+    validatePerformanceGoalPayload(payload);
+
+    const peers = peersFromList(list.filter((g) => g.id !== id));
+    assertRollingGoalUnique(peers, { id, period_type: payload.period_type, metric: payload.metric });
+    assertCustomGoalsNoOverlap(peers, {
+      id,
+      period_type: payload.period_type,
+      metric: payload.metric,
+      custom_start: payload.custom_start,
+      custom_end: payload.custom_end,
+    });
+
+    let q = supabase
+      .from("company_performance_goals")
+      .update({
+        name: payload.name.trim(),
+        period_type: payload.period_type,
+        metric: payload.metric,
+        target_value: payload.target_value,
+        custom_start: payload.period_type === "custom" ? payload.custom_start : null,
+        custom_end: payload.period_type === "custom" ? payload.custom_end : null,
+      })
+      .eq("id", id)
+      .eq("company_id", companyId);
+
+    if (options?.expectedUpdatedAt) {
+      q = q.eq("updated_at", options.expectedUpdatedAt);
+    }
+
+    const { data, error } = await q.select("*").maybeSingle();
+
+    if (error) return { data: null, error };
+    if (!data) {
+      return {
+        data: null,
+        error: new BusinessRuleError(
+          "Não foi possível salvar: a meta pode ter sido alterada por outro usuário.",
+          "GOAL_CONFLICT"
+        ),
+      };
+    }
+    return { data: rowToStored(data as Record<string, unknown>), error: null };
   },
 
-  deleteStoredGoal(companyId: string, id: string): boolean {
+  async deleteGoal(companyId: string, id: string): Promise<{ ok: boolean; error: unknown }> {
     requireCompanyId(companyId);
-    const store = readGoalStore();
-    const list = store[companyId] ?? [];
-    const filtered = list.filter((g) => g.id !== id);
-    if (filtered.length === list.length) return false;
-    store[companyId] = filtered;
-    writeGoalStore(store);
-    return true;
+    requireUuid(id);
+    const { error } = await supabase
+      .from("company_performance_goals")
+      .delete()
+      .eq("id", id)
+      .eq("company_id", companyId);
+    if (error) return { ok: false, error };
+    return { ok: true, error: null };
   },
 
   async enrichStoredGoals(
