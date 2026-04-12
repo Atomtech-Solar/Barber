@@ -8,6 +8,8 @@ port = 54321
 schemas = ["public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
+# CORS da API PostgREST: em produção configure também em Project Settings → API.
+# additional_allowed_origins = ["https://seu-frontend.vercel.app"]
 
 [db]
 port = 54322

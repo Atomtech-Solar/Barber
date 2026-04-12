@@ -21,6 +21,9 @@ export interface CreateClientAccountResult {
 const getFunctionsUrl = () => {
   const url = import.meta.env.VITE_SUPABASE_URL;
   if (!url) throw new Error("VITE_SUPABASE_URL não configurada");
+  if (import.meta.env.PROD && !url.startsWith("https://")) {
+    throw new Error("Em produção a URL do Supabase deve ser HTTPS.");
+  }
   return `${url.replace(/\/$/, "")}/functions/v1`;
 };
 
@@ -43,6 +46,7 @@ export async function createClientAccount(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${anonKey}`,
+      "X-Requested-With": "XMLHttpRequest",
     },
     body: JSON.stringify({
       name: params.name.trim(),
