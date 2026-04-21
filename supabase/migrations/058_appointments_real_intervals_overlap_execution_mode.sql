@@ -185,3 +185,67 @@ CREATE INDEX IF NOT EXISTS idx_appointments_company_starts_at
 
 CREATE INDEX IF NOT EXISTS idx_appointments_professional_starts_at
   ON public.appointments (professional_id, starts_at);
+
+-- -----------------------------------------------------------------------------
+-- 11) Cálculo de duração de agendamento com execution_mode
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.calculate_appointment_duration(p_appointment_id UUID)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  sequential_total INT := 0;
+  parallel_max INT := 0;
+BEGIN
+  -- Soma das durações dos serviços sequenciais
+  SELECT COALESCE(SUM(s.duration_minutes), 0)
+  INTO sequential_total
+  FROM appointment_services aps
+  JOIN services s ON s.id = aps.service_id
+  WHERE aps.appointment_id = p_appointment_id
+    AND COALESCE(s.execution_mode, 'sequential') = 'sequential';
+
+  -- Maior duração entre serviços paralelos
+  SELECT COALESCE(MAX(s.duration_minutes), 0)
+  INTO parallel_max
+  FROM appointment_services aps
+  JOIN services s ON s.id = aps.service_id
+  WHERE aps.appointment_id = p_appointment_id
+    AND COALESCE(s.execution_mode, 'sequential') = 'parallel';
+
+  RETURN sequential_total + parallel_max;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.sync_appointment_duration()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_appointment_id UUID;
+  new_duration INT;
+BEGIN
+  -- Em DELETE, NEW é nulo; em INSERT/UPDATE, usamos NEW.
+  v_appointment_id := COALESCE(NEW.appointment_id, OLD.appointment_id);
+
+  SELECT public.calculate_appointment_duration(v_appointment_id)
+  INTO new_duration;
+
+  UPDATE appointments
+  SET
+    duration_minutes = new_duration,
+    ends_at = starts_at + (new_duration || ' minutes')::interval
+  WHERE id = v_appointment_id;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_appointment_duration ON public.appointment_services;
+
+CREATE TRIGGER trg_sync_appointment_duration
+AFTER INSERT OR UPDATE OR DELETE ON public.appointment_services
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_appointment_duration();

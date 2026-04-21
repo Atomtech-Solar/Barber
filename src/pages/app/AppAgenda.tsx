@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PageContainer from "@/components/shared/PageContainer";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, CheckCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/hooks/useAuth";
 import { bookingService } from "@/services/booking.service";
@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import type { Appointment, ProfessionalWithServices, Service } from "@/types/database.types";
 import { AppointmentFormModal, type FormValues } from "@/components/app/AppointmentFormModal";
+import { CalendarView } from "@/components/app/calendar/CalendarView";
 import {
   Dialog,
   DialogContent,
@@ -22,35 +23,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-const SLOT_MINUTES = 30;
 const DEFAULT_OPENING_TIME = "09:00";
 const DEFAULT_CLOSING_TIME = "19:00";
 
 function parseTime(t: string): Date {
   const [h, m] = (typeof t === "string" ? t.slice(0, 5) : "00:00").split(":").map(Number);
   return setMinutes(setHours(new Date(2000, 0, 1), h), m);
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = (typeof t === "string" ? t.slice(0, 5) : "00:00").split(":").map(Number);
-  return h * 60 + m;
-}
-
-function minutesToTime(totalMinutes: number): string {
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-}
-
-function timeInRange(slotTime: string, start: string, durationMin: number): boolean {
-  const slot = parseTime(slotTime).getTime();
-  const startT = parseTime(start).getTime();
-  const endT = startT + durationMin * 60 * 1000;
-  return slot >= startT && slot < endT;
-}
-
-function slotEquals(slotTime: string, start: string): boolean {
-  return parseTime(slotTime).getTime() === parseTime(start).getTime();
 }
 
 const STATUS_LEGEND = [
@@ -69,20 +47,16 @@ const AppAgenda = () => {
   const companyId = currentCompany?.id ?? "";
   const openingTime = (currentCompany?.opening_time ?? DEFAULT_OPENING_TIME).slice(0, 5);
   const closingTime = (currentCompany?.closing_time ?? DEFAULT_CLOSING_TIME).slice(0, 5);
-  const openingMinutes = timeToMinutes(openingTime);
-  const closingMinutes = timeToMinutes(closingTime);
-  const SLOTS =
-    closingMinutes > openingMinutes
-      ? Array.from(
-          { length: Math.floor((closingMinutes - openingMinutes) / SLOT_MINUTES) },
-          (_, idx) => minutesToTime(openingMinutes + idx * SLOT_MINUTES)
-        )
-      : [];
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
   const [selectedDayOffset, setSelectedDayOffset] = useState<number>(0);
-  const [newSlot, setNewSlot] = useState<{ date: string; startTime: string } | null>(null);
+  const [newSlot, setNewSlot] = useState<{
+    date: string;
+    startTime: string;
+    professionalId: string;
+    professionalName: string;
+  } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [completeConfirmId, setCompleteConfirmId] = useState<string | null>(null);
 
@@ -280,82 +254,28 @@ const AppAgenda = () => {
     };
   });
   const mobileDay = weekDays[Math.min(Math.max(selectedDayOffset, 0), WEEK_DAYS - 1)];
+  const selectedDate = mobileDay.dateObj;
 
-  /** Agendamentos que COBREM este slot (inclui os que estão em andamento) */
-  const getAppointmentsCoveringCell = (dateStr: string, slotTime: string): Appointment[] => {
-    return appointments.filter(
-      (a) =>
-        a.date === dateStr &&
-        timeInRange(slotTime, String(a.start_time).slice(0, 5), a.duration_minutes) &&
-        a.status !== "cancelled" &&
-        a.status !== "no_show"
-    );
-  };
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
-  /** Agendamentos que INICIAM neste slot (para exibir bloco completo) */
-  const getAppointmentsStartingInCell = (dateStr: string, slotTime: string): Appointment[] => {
-    return getAppointmentsCoveringCell(dateStr, slotTime).filter((a) =>
-      slotEquals(slotTime, String(a.start_time).slice(0, 5))
-    );
-  };
-
-  /** IDs de agendamentos que estão em conflito (mesmo profissional, horários sobrepostos) */
-  const getConflictingIds = (): Set<string> => {
-    const active = appointments.filter(
-      (a) => a.status !== "cancelled" && a.status !== "no_show"
-    );
-    const ids = new Set<string>();
-    for (let i = 0; i < active.length; i++) {
-      const a = active[i];
-      const aStart = parseTime(String(a.start_time).slice(0, 5)).getTime();
-      const aEnd = aStart + a.duration_minutes * 60 * 1000;
-      for (let j = 0; j < active.length; j++) {
-        if (i === j) continue;
-        const b = active[j];
-        if (a.professional_id !== b.professional_id || a.date !== b.date) continue;
-        const bStart = parseTime(String(b.start_time).slice(0, 5)).getTime();
-        const bEnd = bStart + b.duration_minutes * 60 * 1000;
-        if (aStart < bEnd && aEnd > bStart) {
-          ids.add(a.id);
-          ids.add(b.id);
-        }
-      }
+  const handleEmptySlotClick = (payload: {
+    professionalId: string;
+    date: string;
+    startTime: string;
+  }) => {
+    const slotDt = new Date(`${payload.date}T${payload.startTime}:00`);
+    if (slotDt < new Date()) {
+      toast.error("Não é possível agendar em horário passado.");
+      return;
     }
-    return ids;
+    const professional = professionals.find((p) => p.id === payload.professionalId);
+    setNewSlot({
+      date: payload.date,
+      startTime: payload.startTime,
+      professionalId: payload.professionalId,
+      professionalName: professional?.name ?? "",
+    });
   };
-
-  const conflictingIds = getConflictingIds();
-
-  const now = new Date();
-  const todayStr = format(now, "yyyy-MM-dd");
-  const minutes = now.getHours() * 60 + now.getMinutes();
-  const slotIndex = Math.floor((minutes - openingMinutes) / SLOT_MINUTES);
-  const currentSlot =
-    slotIndex >= 0 && slotIndex < SLOTS.length ? SLOTS[slotIndex] : "";
-
-  const handleCellClick = (dateStr: string, slotTime: string) => {
-    const cellApts = getAppointmentsCoveringCell(dateStr, slotTime);
-    const startingApts = getAppointmentsStartingInCell(dateStr, slotTime);
-    if (startingApts.length > 0) {
-      setEditingId(startingApts[0].id);
-    } else {
-      const slotDt = new Date(`${dateStr}T${slotTime}`);
-      if (slotDt < now) {
-        toast.error("Não é possível agendar em horário passado.");
-        return;
-      }
-      setNewSlot({ date: dateStr, startTime: slotTime });
-    }
-  };
-
-  const getStatusVariant = (status: string) => {
-    const found = STATUS_LEGEND.find((s) => s.status === status);
-    if (found) return found.className;
-    return "bg-muted border-muted-foreground/30 text-muted-foreground";
-  };
-
-  const getProfessionalName = (profId: string) =>
-    professionals.find((p) => p.id === profId)?.name ?? "—";
 
   return (
     <PageContainer>
@@ -424,247 +344,20 @@ const AppAgenda = () => {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="hidden md:block overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-theme">
-          <table className="w-full border-collapse min-w-[600px]">
-            <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
-              <tr className="border-b border-border bg-muted/30">
-                <th className="p-3 text-left text-xs font-medium text-muted-foreground w-[60px]">
-                  Horário
-                </th>
-                {weekDays.map((d) => {
-                  const dateStr = d.dateStr;
-                  const isToday = dateStr === todayStr;
-                  return (
-                    <th
-                      key={dateStr}
-                      className={`p-3 text-center text-sm font-medium border-l border-border min-w-[100px] ${
-                        isToday ? "bg-primary/10 text-primary" : ""
-                      }`}
-                    >
-                      <div>{d.label}</div>
-                      <div className="text-xs text-muted-foreground">{format(d.dateObj, "d")}</div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {SLOTS.map((slotTime) => {
-                const isNow = todayStr >= startDate && todayStr <= endDate && currentSlot === slotTime;
-                return (
-                  <tr
-                    key={slotTime}
-                    className={`border-b border-border last:border-0 ${
-                      isNow ? "bg-primary/5" : ""
-                    }`}
-                  >
-                    <td
-                      className={`p-2 text-xs text-muted-foreground text-right pr-2 align-top ${
-                        isNow ? "font-semibold text-primary" : ""
-                      }`}
-                    >
-                      {slotTime}
-                    </td>
-                    {weekDays.map((d, dayOffset) => {
-                      const dateStr = d.dateStr;
-                      const cellApts = getAppointmentsStartingInCell(dateStr, slotTime);
-                      const isToday = dateStr === todayStr;
-
-                      return (
-                        <td
-                          key={dayOffset}
-                          className={`p-1 border-l border-border align-top min-h-[48px] ${
-                            isToday ? "bg-primary/5" : ""
-                          }`}
-                        >
-                          <div
-                            className={`min-h-[44px] rounded-lg border flex flex-col gap-1 p-1 transition-colors ${
-                              cellApts.length === 0
-                                ? "border-dashed border-muted-foreground/30 cursor-pointer hover:bg-muted/50 hover:border-muted-foreground/50"
-                                : "border-muted-foreground/20 cursor-pointer"
-                            }`}
-                            onClick={() => handleCellClick(dateStr, slotTime)}
-                          >
-                            {cellApts.length === 0 ? (
-                              <span className="text-[10px] text-muted-foreground self-center m-auto">
-                                +
-                              </span>
-                            ) : (
-                              cellApts.map((apt) => {
-                                const profName = getProfessionalName(apt.professional_id);
-                                const clientName = apt.client_name ?? "Cliente";
-                                const isConflict = conflictingIds.has(apt.id);
-                                const recurring = isRecurringClient(apt);
-                                const variant = isConflict
-                                  ? "bg-red-500/20 border-red-500/50 text-red-700 dark:text-red-300"
-                                  : getStatusVariant(apt.status);
-                                const title = [
-                                  isConflict && "Conflito de horário",
-                                  recurring && "Cliente recorrente",
-                                  apt.client_phone ? `${clientName} · ${apt.client_phone}` : clientName,
-                                ]
-                                  .filter(Boolean)
-                                  .join(" · ");
-                                return (
-                                  <div
-                                    key={`${apt.id}-${slotTime}`}
-                                    className={`rounded px-2 py-1 text-[10px] cursor-pointer transition-opacity hover:opacity-90 border truncate relative group ${variant} ${
-                                      recurring ? "ring-1 ring-amber-400/60" : ""
-                                    }`}
-                                    title={title}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingId(apt.id);
-                                    }}
-                                  >
-                                    {apt.status === "confirmed" && (
-                                      <button
-                                        type="button"
-                                        className="absolute top-0.5 right-0.5 p-0.5 rounded opacity-70 hover:opacity-100 hover:bg-white/20"
-                                        title="Concluir atendimento"
-                                        onClick={(ev) => {
-                                          ev.stopPropagation();
-                                          setCompleteConfirmId(apt.id);
-                                        }}
-                                      >
-                                        <CheckCircle size={12} />
-                                      </button>
-                                    )}
-                                    <p className="font-medium truncate flex items-center gap-1 pr-4">
-                                      {clientName}
-                                      {recurring && (
-                                        <span
-                                          className="shrink-0 rounded-full bg-amber-500/30 px-1"
-                                          title="Cliente recorrente"
-                                        >
-                                          ★
-                                        </span>
-                                      )}
-                                    </p>
-                                    <p className="opacity-80 truncate">
-                                      {profName} · {apt.duration_minutes}min
-                                    </p>
-                                    {apt.client_phone && (
-                                      <p className="opacity-70 truncate text-[9px]">
-                                        {apt.client_phone}
-                                      </p>
-                                    )}
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="md:hidden p-3 space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto scrollbar-theme">
-          {SLOTS.map((slotTime) => {
-            const dateStr = mobileDay.dateStr;
-            const startingApts = getAppointmentsStartingInCell(dateStr, slotTime);
-            const isNow = dateStr === todayStr && currentSlot === slotTime;
-
-            return (
-              <div
-                key={`${dateStr}-${slotTime}`}
-                className={`rounded-lg border p-2 ${isNow ? "border-primary bg-primary/5" : "border-border"}`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <p className={`text-sm font-medium ${isNow ? "text-primary" : ""}`}>{slotTime}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCellClick(dateStr, slotTime)}
-                  >
-                    {startingApts.length === 0 ? "Agendar" : "Abrir"}
-                  </Button>
-                </div>
-                {startingApts.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Horário livre</p>
-                ) : (
-                  <div className="space-y-1">
-                    {startingApts.map((apt) => {
-                      const profName = getProfessionalName(apt.professional_id);
-                      const clientName = apt.client_name ?? "Cliente";
-                      const isConflict = conflictingIds.has(apt.id);
-                      const recurring = isRecurringClient(apt);
-                      const variant = isConflict
-                        ? "bg-red-500/20 border-red-500/50 text-red-700 dark:text-red-300"
-                        : getStatusVariant(apt.status);
-                      const title = [
-                        isConflict && "Conflito de horário",
-                        recurring && "Cliente recorrente",
-                        apt.client_phone ? `${clientName} · ${apt.client_phone}` : clientName,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ");
-                      return (
-                        <div
-                          key={`${apt.id}-${slotTime}-mobile`}
-                          className={`rounded px-2 py-1 text-xs border transition-opacity ${variant} ${
-                            recurring ? "ring-1 ring-amber-400/60" : ""
-                          }`}
-                        >
-                          <div
-                            className="w-full text-left"
-                            title={title}
-                            onClick={() => setEditingId(apt.id)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => e.key === "Enter" && setEditingId(apt.id)}
-                          >
-                            <p className="font-medium truncate flex items-center gap-1">
-                              {clientName}
-                              {recurring && (
-                                <span
-                                  className="shrink-0 rounded-full bg-amber-500/30 px-1"
-                                  title="Cliente recorrente"
-                                >
-                                  ★
-                                </span>
-                              )}
-                            </p>
-                            {apt.client_phone && (
-                              <p className="opacity-80 truncate text-[10px]">
-                                {apt.client_phone}
-                              </p>
-                            )}
-                            <p className="opacity-80 truncate">
-                              {profName} · {apt.duration_minutes}min
-                            </p>
-                          </div>
-                          {apt.status === "confirmed" && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="secondary"
-                              className="mt-1 w-full h-7 text-xs gap-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setCompleteConfirmId(apt.id);
-                              }}
-                            >
-                              <CheckCircle size={12} />
-                              Concluir atendimento
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+      <div className="mb-3 text-sm text-muted-foreground">
+        Visualizando agenda de <span className="font-medium">{mobileDay.label}</span>,{" "}
+        {format(selectedDate, "dd/MM/yyyy")} {mobileDay.dateStr === todayStr ? "(hoje)" : ""}
       </div>
+
+      <CalendarView
+        date={selectedDate}
+        professionals={professionals}
+        appointments={appointments as (Appointment & { starts_at?: string | null; ends_at?: string | null })[]}
+        openingTime={openingTime}
+        closingTime={closingTime}
+        onEmptySlotClick={handleEmptySlotClick}
+        onEventClick={(appointmentId) => setEditingId(appointmentId)}
+      />
 
       <AppointmentFormModal
         open={!!newSlot}
@@ -673,8 +366,8 @@ const AppAgenda = () => {
         initialSlot={
           newSlot
             ? {
-                professionalId: "",
-                professionalName: "",
+                professionalId: newSlot.professionalId,
+                professionalName: newSlot.professionalName,
                 date: newSlot.date,
                 startTime: newSlot.startTime,
               }
